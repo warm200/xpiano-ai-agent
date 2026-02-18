@@ -541,15 +541,18 @@ def coach(
             measures = _measures_str(payload.get("measures"))
             console.print(f"\n{render_playback_indicator(source, measures)}")
 
-        asyncio.run(
-            stream_coaching(
-                report=report_payload,
-                provider=provider,
-                playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
-                on_text=lambda text: console.print(text, end=""),
-                on_tool=_on_tool,
+        try:
+            asyncio.run(
+                stream_coaching(
+                    report=report_payload,
+                    provider=provider,
+                    playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
+                    on_text=lambda text: console.print(text, end=""),
+                    on_tool=_on_tool,
+                )
             )
-        )
+        except (ValueError, OSError) as exc:
+            raise typer.BadParameter(str(exc)) from exc
         console.print()
         console.print("Streaming coaching finished.")
         return

@@ -1316,6 +1316,41 @@ def test_coach_stream_command(
     assert "Streaming coaching finished." in result.stdout
 
 
+def test_coach_stream_command_surfaces_stream_errors(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / "20260101_120000.json"
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
+            "match_rate": 0.8,
+            "top_problems": ["M2 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    report_path.write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+
+    async def _fake_stream(**kwargs):
+        _ = kwargs
+        raise ValueError("invalid playback source")
+
+    monkeypatch.setattr("xpiano.cli.stream_coaching", _fake_stream)
+    result = runner.invoke(app, ["coach", "--song", "twinkle", "--stream"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_playback_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.playback_play",
