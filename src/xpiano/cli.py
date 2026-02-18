@@ -34,6 +34,8 @@ def _parse_time_signature(time_sig: str) -> tuple[int, int]:
         raise typer.BadParameter("time signature must be like 4/4") from exc
     if beats_per_measure <= 0 or beat_unit <= 0:
         raise typer.BadParameter("time signature values must be > 0")
+    if beats_per_measure > 12:
+        raise typer.BadParameter("time signature beats per measure must be <= 12")
     if beat_unit not in {1, 2, 4, 8, 16}:
         raise typer.BadParameter("time signature beat unit must be one of 1,2,4,8,16")
     return beats_per_measure, beat_unit
@@ -165,6 +167,8 @@ def setup(
     segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise typer.BadParameter("bpm must be in range 20..240")
     if split_pitch is not None and (split_pitch < 0 or split_pitch > 127):
         raise typer.BadParameter("split-pitch must be in range 0..127")
     config.ensure_config(data_dir=data_dir)

@@ -417,6 +417,22 @@ def test_setup_rejects_invalid_time_signature_beat_unit() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_time_signature_with_too_many_beats() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--time-sig",
+            "13/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_setup_rejects_unsupported_time_signature_beat_unit() -> None:
     result = runner.invoke(
         app,
@@ -504,6 +520,24 @@ def test_setup_rejects_non_positive_bpm() -> None:
             "verse2",
             "--bpm",
             "0",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+def test_setup_rejects_bpm_out_of_schema_range() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "241",
             "--time-sig",
             "4/4",
         ],
