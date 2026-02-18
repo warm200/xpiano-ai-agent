@@ -87,11 +87,14 @@ def _pitches_to_names(notes: list[NoteEvent], pitches: set[int]) -> list[str]:
 
 def _validate_timing_meta(meta: dict) -> tuple[int, float]:
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
     if beats_per_measure > 12:
         raise ValueError("invalid time signature: beats_per_measure must be <= 12")
+    if beat_unit not in {1, 2, 4, 8, 16}:
+        raise ValueError("invalid time signature: beat_unit must be one of 1,2,4,8,16")
     if bpm < 20 or bpm > 240:
         raise ValueError("invalid bpm: must be in range 20..240")
     return beats_per_measure, bpm

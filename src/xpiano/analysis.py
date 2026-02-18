@@ -68,11 +68,14 @@ def _segment_time_bounds(meta: dict, segment_id: str | None) -> tuple[float, flo
 
 def _validate_timing_meta(meta: dict) -> None:
     beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
+    beat_unit = int(meta.get("time_signature", {}).get("beat_unit", 4))
     bpm = float(meta.get("bpm", 120))
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
     if beats_per_measure > 12:
         raise ValueError("invalid time signature: beats_per_measure must be <= 12")
+    if beat_unit not in {1, 2, 4, 8, 16}:
+        raise ValueError("invalid time signature: beat_unit must be one of 1,2,4,8,16")
     if bpm < 20 or bpm > 240:
         raise ValueError("invalid bpm: must be in range 20..240")
 

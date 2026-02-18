@@ -92,6 +92,17 @@ def test_build_pitch_sequence_rejects_out_of_range_beats_per_measure() -> None:
         raise AssertionError("expected ValueError for out-of-range beats_per_measure")
 
 
+def test_build_pitch_sequence_rejects_unsupported_beat_unit() -> None:
+    meta = _meta()
+    meta["time_signature"]["beat_unit"] = 32
+    try:
+        _ = build_pitch_sequence([], meta)
+    except ValueError as exc:
+        assert "beat_unit must be one of 1,2,4,8,16" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unsupported beat_unit")
+
+
 def test_build_pitch_sequence_rejects_negative_chord_window_ms() -> None:
     meta = _meta()
     meta["tolerance"]["chord_window_ms"] = -1

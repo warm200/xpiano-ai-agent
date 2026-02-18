@@ -46,11 +46,14 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
     if chord_window_ms < 0:
         raise ValueError("invalid chord_window_ms: must be >= 0")
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
     if beats_per_measure > 12:
         raise ValueError("invalid time signature: beats_per_measure must be <= 12")
+    if beat_unit not in {1, 2, 4, 8, 16}:
+        raise ValueError("invalid time signature: beat_unit must be one of 1,2,4,8,16")
     if bpm < 20 or bpm > 240:
         raise ValueError("invalid bpm: must be in range 20..240")
     beat_sec = 60.0 / bpm

@@ -361,3 +361,21 @@ def test_play_rejects_out_of_range_meta_beats_per_measure(monkeypatch) -> None:
             song_id="twinkle",
             segment_id="verse1",
         )
+
+
+def test_play_rejects_unsupported_meta_beat_unit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.playback.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 3},
+            "bpm": 120,
+            "segments": [{"segment_id": "verse1", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    with pytest.raises(ValueError, match="beat_unit must be one of 1,2,4,8,16"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+        )
