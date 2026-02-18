@@ -97,6 +97,11 @@ def _validate_midi_defaults(defaults: dict[str, Any]) -> None:
         raise ValueError(
             f"invalid reference midi time signature: beats_per_measure must be > 0 (got {beats_per_measure})"
         )
+    if beats_per_measure > 12:
+        raise ValueError(
+            "invalid reference midi time signature: beats_per_measure must be <= 12 "
+            f"(got {beats_per_measure})"
+        )
     if beat_unit not in {1, 2, 4, 8, 16}:
         raise ValueError(
             f"invalid reference midi time signature: beat_unit must be one of 1,2,4,8,16 (got {beat_unit})"
@@ -290,6 +295,8 @@ def record_reference(
     end_measure = int(segment["end_measure"])
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if beats_per_measure > 12:
+        raise ValueError("invalid time signature: beats_per_measure must be <= 12")
     if beat_unit <= 0:
         raise ValueError("invalid time signature: beat_unit must be > 0")
     if beat_unit not in {1, 2, 4, 8, 16}:

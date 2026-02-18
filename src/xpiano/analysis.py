@@ -71,6 +71,8 @@ def _validate_timing_meta(meta: dict) -> None:
     bpm = float(meta.get("bpm", 120))
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if beats_per_measure > 12:
+        raise ValueError("invalid time signature: beats_per_measure must be <= 12")
     if bpm < 20 or bpm > 240:
         raise ValueError("invalid bpm: must be in range 20..240")
 

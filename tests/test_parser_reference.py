@@ -93,6 +93,24 @@ def test_import_reference_rejects_unsupported_midi_beat_unit(sample_midi_path: P
         raise AssertionError("expected ValueError for unsupported midi beat_unit")
 
 
+def test_import_reference_rejects_out_of_range_midi_beats_per_measure(sample_midi_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference._extract_midi_defaults",
+        lambda path: {
+            "bpm": 120.0,
+            "beats_per_measure": 13,
+            "beat_unit": 4,
+            "measures": 2,
+        },
+    )
+    try:
+        _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    except ValueError as exc:
+        assert "beats_per_measure must be <= 12" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range midi beats_per_measure")
+
+
 def test_import_reference_refreshes_meta_tempo_from_midi(
     xpiano_home: Path,
     sample_midi_path: Path,
@@ -256,6 +274,28 @@ def test_record_reference_rejects_out_of_range_meta_bpm(monkeypatch) -> None:
         assert "invalid bpm" in str(exc)
     else:
         raise AssertionError("expected ValueError for out-of-range bpm")
+
+
+def test_record_reference_rejects_out_of_range_meta_beats_per_measure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 13, "beat_unit": 4},
+            "bpm": 120,
+            "segments": [{"segment_id": "default", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.reference.midi_io.record",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("midi_io.record should not be called")),
+    )
+    try:
+        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+    except ValueError as exc:
+        assert "beats_per_measure must be <= 12" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range beats_per_measure")
 
 
 def test_record_reference_rejects_unsupported_meta_beat_unit(monkeypatch) -> None:

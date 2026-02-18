@@ -51,6 +51,22 @@ def test_record_rejects_non_positive_beats_per_measure() -> None:
         raise AssertionError("expected ValueError for non-positive beats_per_measure")
 
 
+def test_record_rejects_out_of_range_beats_per_measure() -> None:
+    try:
+        _ = midi_io.record(
+            port=None,
+            duration_sec=0.01,
+            count_in_beats=0,
+            bpm=90.0,
+            beats_per_measure=13,
+            beat_unit=4,
+        )
+    except ValueError as exc:
+        assert "beats_per_measure must be <= 12" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range beats_per_measure")
+
+
 def test_record_rejects_non_positive_beat_unit() -> None:
     try:
         _ = midi_io.record(

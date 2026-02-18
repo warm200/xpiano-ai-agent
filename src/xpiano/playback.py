@@ -151,8 +151,10 @@ def play(
     ref_bpm = float(meta["bpm"])
     if beats_per_measure <= 0:
         raise ValueError("invalid time signature: beats_per_measure must be > 0")
-    if ref_bpm <= 0:
-        raise ValueError("invalid bpm: must be > 0")
+    if beats_per_measure > 12:
+        raise ValueError("invalid time signature: beats_per_measure must be <= 12")
+    if ref_bpm < 20 or ref_bpm > 240:
+        raise ValueError("invalid bpm: must be in range 20..240")
     seg_start = int(segment["start_measure"])
     highlight = _pitch_names_to_numbers(highlight_pitches)
 

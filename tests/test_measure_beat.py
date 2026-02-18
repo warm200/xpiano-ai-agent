@@ -26,3 +26,8 @@ def test_time_to_measure_beat_negative_time_clamped() -> None:
 def test_time_to_measure_beat_rejects_non_positive_start_measure() -> None:
     with pytest.raises(ValueError, match="start_measure must be > 0"):
         _ = time_to_measure_beat(time_sec=0.0, bpm=120.0, beats_per_measure=4, start_measure=0)
+
+
+def test_time_to_measure_beat_rejects_out_of_range_beats_per_measure() -> None:
+    with pytest.raises(ValueError, match="beats_per_measure must be <= 12"):
+        _ = time_to_measure_beat(time_sec=0.0, bpm=120.0, beats_per_measure=13, start_measure=1)

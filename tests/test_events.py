@@ -146,6 +146,21 @@ def test_generate_events_rejects_non_positive_beats_per_measure() -> None:
         )
 
 
+def test_generate_events_rejects_out_of_range_beats_per_measure() -> None:
+    meta = _meta()
+    meta["time_signature"]["beats_per_measure"] = 13
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+    with pytest.raises(ValueError, match="beats_per_measure must be <= 12"):
+        _ = generate_events(
+            ref=ref,
+            attempt=attempt,
+            alignment=alignment,
+            meta=meta,
+        )
+
+
 def test_generate_events_rejects_negative_chord_window_ms() -> None:
     meta = _meta()
     meta["tolerance"]["chord_window_ms"] = -1

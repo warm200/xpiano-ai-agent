@@ -59,6 +59,8 @@ def record(
         raise ValueError("bpm must be > 0")
     if beats_per_measure <= 0:
         raise ValueError("beats_per_measure must be > 0")
+    if beats_per_measure > 12:
+        raise ValueError("beats_per_measure must be <= 12")
     if beat_unit <= 0:
         raise ValueError("beat_unit must be > 0")
     if beat_unit not in {1, 2, 4, 8, 16}:

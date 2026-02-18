@@ -247,6 +247,18 @@ def test_analysis_rejects_non_positive_beats_per_measure(tmp_path: Path) -> None
         _ = analyze(str(ref_mid), str(attempt_mid), meta)
 
 
+def test_analysis_rejects_out_of_range_beats_per_measure(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["time_signature"]["beats_per_measure"] = 13
+    with pytest.raises(ValueError, match="beats_per_measure must be <= 12"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
 def test_analysis_rejects_out_of_range_hand_split(tmp_path: Path) -> None:
     ref_mid = tmp_path / "ref.mid"
     attempt_mid = tmp_path / "attempt.mid"
