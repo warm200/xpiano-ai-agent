@@ -84,6 +84,8 @@ def _require_segment(value: str) -> str:
     cleaned = value.strip()
     if not cleaned:
         raise typer.BadParameter("segment must be non-empty")
+    if "/" in cleaned or "\\" in cleaned:
+        raise typer.BadParameter("segment must not contain path separators")
     return cleaned
 
 

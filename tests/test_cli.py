@@ -471,6 +471,24 @@ def test_setup_rejects_empty_segment() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_segment_with_path_separator() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse/1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_setup_rejects_empty_song() -> None:
     result = runner.invoke(
         app,
@@ -573,6 +591,14 @@ def test_import_command_rejects_empty_segment(sample_midi_path: Path) -> None:
     result = runner.invoke(
         app,
         ["import", "--file", str(sample_midi_path), "--song", "twinkle", "--segment", ""],
+    )
+    assert result.exit_code != 0
+
+
+def test_import_command_rejects_segment_with_path_separator(sample_midi_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "twinkle", "--segment", "verse/1"],
     )
     assert result.exit_code != 0
 
