@@ -129,6 +129,19 @@ def import_reference(
             "beats_per_measure": defaults["beats_per_measure"],
             "beat_unit": defaults["beat_unit"],
         }
+        if segment_id:
+            segments = list(meta.get("segments", []))
+            if all(item.get("segment_id") != segment_id for item in segments):
+                segments.append(
+                    {
+                        "segment_id": segment_id,
+                        "label": segment_id,
+                        "start_measure": 1,
+                        "end_measure": defaults["measures"],
+                        "count_in_measures": 1,
+                    }
+                )
+                meta["segments"] = sorted(segments, key=lambda seg: str(seg.get("segment_id", "")))
         save_meta(song_id=song_id, meta=meta, data_dir=data_dir)
     return target_ref
 

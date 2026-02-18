@@ -46,6 +46,18 @@ def test_import_reference_refreshes_meta_tempo_from_midi(
     assert refreshed["time_signature"]["beat_unit"] == 4
 
 
+def test_import_reference_adds_missing_segment_on_reimport(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+) -> None:
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle", segment_id="verse2")
+    meta = reference.load_meta("twinkle")
+    segment_ids = [str(item["segment_id"]) for item in meta["segments"]]
+    assert "default" in segment_ids
+    assert "verse2" in segment_ids
+
+
 def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path) -> None:
     reference.import_reference(sample_midi_path, song_id="twinkle")
     songs = reference.list_songs()
