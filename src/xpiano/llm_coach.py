@@ -123,12 +123,29 @@ def build_coaching_prompt(report: dict[str, Any]) -> str:
 
 def _extract_json_text(raw: str) -> str:
     trimmed = raw.strip()
-    if trimmed.startswith("{") and trimmed.endswith("}"):
-        return trimmed
+    if trimmed.startswith("{"):
+        try:
+            parsed, end_idx = json.JSONDecoder().raw_decode(trimmed)
+        except json.JSONDecodeError:
+            pass
+        else:
+            if isinstance(parsed, dict) and end_idx == len(trimmed):
+                return trimmed
 
     fenced = re.search(r"```(?:json)?\s*(\{.*\})\s*```", raw, flags=re.DOTALL)
     if fenced:
         return fenced.group(1)
+
+    decoder = json.JSONDecoder()
+    for idx, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            payload, end_idx = decoder.raw_decode(raw[idx:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return raw[idx: idx + end_idx]
 
     first = raw.find("{")
     last = raw.rfind("}")

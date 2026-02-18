@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import Any, AsyncIterator
 
 from xpiano.llm_coach import (_validate_playback_payload, build_coaching_prompt,
-                              fallback_output, get_coaching, save_coaching,
+                              fallback_output, get_coaching,
+                              parse_coaching_text, save_coaching,
                               stream_coaching)
 from xpiano.llm_provider import LLMProvider
 from xpiano.models import PlayResult
@@ -295,6 +296,28 @@ def test_stream_coaching_returns_playback_result_to_provider() -> None:
     )
     assert text == "done"
     assert provider.tool_results == [{"status": "played", "duration_sec": 2.3}]
+
+
+def test_parse_coaching_text_extracts_json_from_wrapped_stream_text() -> None:
+    wrapped = (
+        "Coach intro...\n"
+        + _valid_output_json()
+        + "\nNext step: keep practicing."
+    )
+    payload, errors = parse_coaching_text(wrapped)
+    assert errors == []
+    assert payload is not None
+    assert payload["goal"]
+
+
+def test_parse_coaching_text_uses_first_valid_object_when_multiple_present() -> None:
+    first = _valid_output_json()
+    second = '{"irrelevant": true}'
+    raw = f"{first}\n{second}"
+    payload, errors = parse_coaching_text(raw)
+    assert errors == []
+    assert payload is not None
+    assert payload["goal"]
 
 
 def test_validate_playback_payload_rejects_nan_bpm() -> None:
