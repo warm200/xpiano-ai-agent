@@ -16,9 +16,14 @@ from xpiano.schemas import validate
 def _coerce_int(value: Any, default: int = 0) -> int:
     if isinstance(value, bool):
         return default
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return default
+        if not value.is_integer():
+            return default
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
