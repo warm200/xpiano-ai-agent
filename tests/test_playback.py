@@ -241,6 +241,26 @@ def test_play_rejects_invalid_segment_range(xpiano_home: Path) -> None:
         )
 
 
+def test_play_rejects_non_positive_segment_start(xpiano_home: Path, monkeypatch) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    meta = _meta()
+    meta["segments"][0]["start_measure"] = 0
+    meta["segments"][0]["end_measure"] = 1
+    monkeypatch.setattr(
+        "xpiano.playback.reference.load_meta",
+        lambda **kwargs: meta,
+    )
+    with pytest.raises(ValueError, match="invalid segment range"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+        )
+
+
 def test_play_rejects_non_positive_meta_bpm(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.playback.reference.load_meta",

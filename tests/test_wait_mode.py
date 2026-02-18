@@ -176,6 +176,22 @@ def test_run_wait_mode_rejects_invalid_segment_range(xpiano_home: Path) -> None:
         raise AssertionError("expected ValueError for invalid segment range")
 
 
+def test_run_wait_mode_rejects_non_positive_segment_start(monkeypatch) -> None:
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 0, "end_measure": 1}]
+    monkeypatch.setattr("xpiano.wait_mode.load_meta", lambda **kwargs: meta)
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "invalid segment range" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid segment start")
+
+
 def test_run_wait_mode_rejects_invalid_reference_note_entry(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

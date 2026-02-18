@@ -32,6 +32,8 @@ def _segment_bounds(meta: dict, segment_id: str) -> tuple[int, int]:
         if segment.get("segment_id") == segment_id:
             start = int(segment.get("start_measure", 1))
             end = int(segment.get("end_measure", start))
+            if start <= 0:
+                raise ValueError(f"invalid segment range: {start}-{end}")
             if end < start:
                 raise ValueError(f"invalid segment range: {start}-{end}")
             return start, end
