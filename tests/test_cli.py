@@ -256,6 +256,66 @@ def test_coach_command_with_mocked_provider(
     assert "Saved coaching:" in result.stdout
 
 
+def test_coach_command_with_segment_filter(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload_1 = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 7, "missing": 3, "extra": 1},
+            "match_rate": 0.7,
+            "top_problems": ["M1 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    report_payload_2 = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse2",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 9, "missing": 1, "extra": 0},
+            "match_rate": 0.9,
+            "top_problems": ["M2 timing_late x1"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload_1), encoding="utf-8")
+    (reports_dir / "20260101_120100.json").write_text(json.dumps(report_payload_2), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+    monkeypatch.setattr(
+        "xpiano.cli.get_coaching",
+        lambda report, provider, max_retries: {
+            "goal": f"work on {report['segment_id']}",
+            "top_issues": [{"title": "Issue", "why": "why", "evidence": ["x"]}],
+            "drills": [
+                {"name": "D1", "minutes": 7, "bpm": 45, "how": ["a", "b"], "reps": "5x", "focus_measures": "1"},
+                {"name": "D2", "minutes": 8, "bpm": 50, "how": ["a", "b"], "reps": "4x", "focus_measures": "2"},
+            ],
+            "pass_conditions": {"before_speed_up": ["a", "b"], "speed_up_rule": "+5"},
+            "next_recording": {"what_to_record": "seg", "tips": ["a", "b"]},
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle", "--segment", "verse2"])
+    assert result.exit_code == 0
+    assert "Goal: work on verse2" in result.stdout
+
+
 def test_coach_stream_command(
     xpiano_home: Path,
     monkeypatch,
