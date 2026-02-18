@@ -6,6 +6,7 @@ from pathlib import Path
 import mido
 from typer.testing import CliRunner
 
+import xpiano.cli as cli_module
 from xpiano.cli import app
 from xpiano.models import PlayResult
 from xpiano.wait_mode import WaitModeResult
@@ -148,6 +149,31 @@ def test_record_and_report_commands(
     report_result = runner.invoke(app, ["report", "--song", "twinkle"])
     assert report_result.exit_code == 0
     assert "match_rate=" in report_result.stdout
+
+
+def test_record_passes_segment_context_to_analyze(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    captured: dict[str, object] = {}
+    original_analyze = cli_module.analyze
+
+    def _capture(*args, **kwargs):
+        captured.update(kwargs)
+        return original_analyze(*args, **kwargs)
+
+    monkeypatch.setattr("xpiano.cli.analyze", _capture)
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert captured["segment_id"] == "default"
+    assert captured["attempt_is_segment_relative"] is True
 
 
 def test_report_command_with_segment_filter(xpiano_home: Path) -> None:
