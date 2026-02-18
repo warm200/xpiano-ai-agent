@@ -203,7 +203,9 @@ async def stream_coaching(
     prompt = build_coaching_prompt(report)
     async for event in provider.stream(prompt=prompt, tools=[PLAYBACK_TOOL_SCHEMA]):
         event_type = event.get("type")
+        if event_type == "text_delta":
+            continue
         if event_type == "tool_use":
             payload = event.get("input", {})
-            if payload.get("type") == "playback":
+            if payload:
                 playback_engine.play(**payload)

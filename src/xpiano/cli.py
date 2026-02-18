@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
 from xpiano.display import (render_low_match, render_piano_roll_diff,
                             render_report)
-from xpiano.llm_coach import get_coaching, save_coaching
+from xpiano.llm_coach import get_coaching, save_coaching, stream_coaching
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
 from xpiano.report import build_history, build_report, save_report
@@ -224,6 +225,7 @@ def report(
 @app.command("coach")
 def coach(
     song: str = typer.Option(..., "--song"),
+    stream: bool = typer.Option(False, "--stream"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     cfg = config.ensure_config(data_dir=data_dir)
@@ -232,6 +234,44 @@ def coach(
         report_payload = json.load(fp)
 
     provider = create_provider(cfg)
+    if stream:
+        segment_id = str(report_payload.get("segment_id", "default"))
+
+        class _PlaybackAdapter:
+            def __init__(self, song_id: str, segment_id: str, data_dir: Path | None):
+                self.song_id = song_id
+                self.segment_id = segment_id
+                self.data_dir = data_dir
+
+            def play(self, **payload):
+                measures_obj = payload.get("measures")
+                measures = None
+                if isinstance(measures_obj, dict):
+                    start = measures_obj.get("start")
+                    end = measures_obj.get("end")
+                    if start and end:
+                        measures = f"{start}-{end}"
+                return playback_play(
+                    source=payload.get("source", "reference"),
+                    song_id=self.song_id,
+                    segment_id=self.segment_id,
+                    measures=measures,
+                    bpm=payload.get("bpm"),
+                    highlight_pitches=payload.get("highlight_pitches"),
+                    data_dir=self.data_dir,
+                    delay_between=float(payload.get("delay_between_sec", 1.5)),
+                )
+
+        asyncio.run(
+            stream_coaching(
+                report=report_payload,
+                provider=provider,
+                playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
+            )
+        )
+        console.print("Streaming coaching finished.")
+        return
+
     coaching = get_coaching(
         report=report_payload,
         provider=provider,

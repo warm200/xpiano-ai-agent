@@ -183,6 +183,38 @@ def test_coach_command_with_mocked_provider(
     assert "Saved coaching:" in result.stdout
 
 
+def test_coach_stream_command(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / "20260101_120000.json"
+    report_payload = {
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
+            "match_rate": 0.8,
+            "top_problems": ["M2 wrong_pitch x2"],
+        },
+        "events": [],
+    }
+    report_path.write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+
+    async def _fake_stream(**kwargs):
+        _ = kwargs
+        return None
+
+    monkeypatch.setattr("xpiano.cli.stream_coaching", _fake_stream)
+    result = runner.invoke(app, ["coach", "--song", "twinkle", "--stream"])
+    assert result.exit_code == 0
+    assert "Streaming coaching finished." in result.stdout
+
+
 def test_playback_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.playback_play",

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from typing import Any, AsyncIterator
 
 from xpiano.llm_coach import (build_coaching_prompt, fallback_output,
-                              get_coaching, save_coaching)
+                              get_coaching, save_coaching, stream_coaching)
 from xpiano.llm_provider import LLMProvider
 from xpiano.schemas import validate
 
@@ -25,6 +26,27 @@ class FakeProvider(LLMProvider):
         _ = prompt
         _ = tools
         yield {"type": "text_delta", "text": "ok"}
+
+
+class FakeStreamProvider(LLMProvider):
+    def generate(self, prompt: str, output_schema: dict | None = None) -> str:
+        _ = prompt
+        _ = output_schema
+        return "{}"
+
+    async def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
+        _ = prompt
+        _ = tools
+        yield {"type": "text_delta", "text": "issue found"}
+        yield {
+            "type": "tool_use",
+            "input": {
+                "source": "reference",
+                "measures": {"start": 2, "end": 3},
+                "bpm": 45,
+                "highlight_pitches": ["E4"],
+            },
+        }
 
 
 def _report() -> dict[str, Any]:
@@ -116,3 +138,18 @@ def test_save_coaching_writes_file(xpiano_home) -> None:
     output = fallback_output(_report())
     path = save_coaching(output, song_id="twinkle")
     assert path.exists()
+
+
+def test_stream_coaching_calls_playback_engine() -> None:
+    class Playback:
+        def __init__(self):
+            self.calls = 0
+
+        def play(self, **kwargs):
+            _ = kwargs
+            self.calls += 1
+
+    provider = FakeStreamProvider()
+    playback = Playback()
+    asyncio.run(stream_coaching(report=_report(), provider=provider, playback_engine=playback))
+    assert playback.calls == 1
