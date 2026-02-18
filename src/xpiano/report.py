@@ -87,3 +87,54 @@ def save_report(report: dict[str, Any], song_id: str, data_dir: str | Path | Non
     with path.open("w", encoding="utf-8") as fp:
         json.dump(report, fp, ensure_ascii=True, indent=2)
     return path
+
+
+def list_reports(song_id: str, data_dir: str | Path | None = None) -> list[Path]:
+    reports_dir = song_dir(song_id=song_id, data_dir=data_dir) / "reports"
+    if not reports_dir.exists():
+        return []
+    return sorted(reports_dir.glob("*.json"))
+
+
+def load_report(path: str | Path) -> dict[str, Any]:
+    with Path(path).open("r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+    errors = validate("report", payload)
+    if errors:
+        raise ValueError(f"invalid report.json: {'; '.join(errors)}")
+    return payload
+
+
+def build_history(
+    song_id: str,
+    segment_id: str | None = None,
+    attempts: int = 5,
+    data_dir: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    paths = list_reports(song_id=song_id, data_dir=data_dir)
+    rows: list[dict[str, Any]] = []
+    for path in paths:
+        try:
+            report = load_report(path)
+        except Exception:
+            continue
+        if segment_id and report.get("segment_id") != segment_id:
+            continue
+        summary = report.get("summary", {})
+        counts = summary.get("counts", {})
+        rows.append(
+            {
+                "path": str(path),
+                "filename": path.name,
+                "segment_id": report.get("segment_id"),
+                "match_rate": float(summary.get("match_rate", 0.0)),
+                "missing": int(counts.get("missing", 0)),
+                "extra": int(counts.get("extra", 0)),
+                "matched": int(counts.get("matched", 0)),
+                "ref_notes": int(counts.get("ref_notes", 0)),
+            }
+        )
+    rows.sort(key=lambda item: item["filename"])
+    if attempts > 0:
+        rows = rows[-attempts:]
+    return rows

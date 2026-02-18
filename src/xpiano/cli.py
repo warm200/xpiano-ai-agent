@@ -14,7 +14,7 @@ from xpiano.display import (render_low_match, render_piano_roll_diff,
 from xpiano.llm_coach import get_coaching, save_coaching
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
-from xpiano.report import build_report, save_report
+from xpiano.report import build_history, build_report, save_report
 from xpiano.wait_mode import run_wait_mode
 
 app = typer.Typer(help="XPiano CLI")
@@ -270,6 +270,66 @@ def wait(
     console.print(
         f"Wait mode: completed={result.completed}/{result.total_steps} errors={result.errors}"
     )
+
+
+@app.command("history")
+def history(
+    song: str = typer.Option(..., "--song"),
+    segment: str | None = typer.Option(None, "--segment"),
+    attempts: int = typer.Option(5, "--attempts"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    rows = build_history(
+        song_id=song,
+        segment_id=segment,
+        attempts=attempts,
+        data_dir=data_dir,
+    )
+    if not rows:
+        console.print("No report history.")
+        return
+    table = Table(title=f"History: {song}")
+    table.add_column("Report")
+    table.add_column("Segment")
+    table.add_column("Match")
+    table.add_column("Missing")
+    table.add_column("Extra")
+    for row in rows:
+        table.add_row(
+            row["filename"],
+            str(row["segment_id"]),
+            f"{row['match_rate']:.2f}",
+            str(row["missing"]),
+            str(row["extra"]),
+        )
+    console.print(table)
+
+
+@app.command("compare")
+def compare(
+    song: str = typer.Option(..., "--song"),
+    segment: str | None = typer.Option(None, "--segment"),
+    attempts: int = typer.Option(2, "--attempts"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    rows = build_history(
+        song_id=song,
+        segment_id=segment,
+        attempts=max(2, attempts),
+        data_dir=data_dir,
+    )
+    if len(rows) < 2:
+        console.print("Need at least 2 reports to compare.")
+        return
+    prev = rows[-2]
+    curr = rows[-1]
+    console.print(f"Compare: {prev['filename']} -> {curr['filename']}")
+    delta_match = curr["match_rate"] - prev["match_rate"]
+    delta_missing = curr["missing"] - prev["missing"]
+    delta_extra = curr["extra"] - prev["extra"]
+    console.print(f"match_rate: {prev['match_rate']:.2f} -> {curr['match_rate']:.2f} ({delta_match:+.2f})")
+    console.print(f"missing: {prev['missing']} -> {curr['missing']} ({delta_missing:+d})")
+    console.print(f"extra: {prev['extra']} -> {curr['extra']} ({delta_extra:+d})")
 
 
 if __name__ == "__main__":

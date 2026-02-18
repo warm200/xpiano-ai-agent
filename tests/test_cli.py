@@ -156,3 +156,35 @@ def test_wait_command_calls_engine(monkeypatch) -> None:
     )
     assert result.exit_code == 0
     assert "completed=3/4 errors=1" in result.stdout
+
+
+def test_history_and_compare_commands(monkeypatch) -> None:
+    rows = [
+        {
+            "filename": "20260101_120000.json",
+            "segment_id": "verse1",
+            "match_rate": 0.5,
+            "missing": 5,
+            "extra": 2,
+            "matched": 5,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "20260101_120100.json",
+            "segment_id": "verse1",
+            "match_rate": 0.8,
+            "missing": 2,
+            "extra": 1,
+            "matched": 8,
+            "ref_notes": 10,
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+
+    history_result = runner.invoke(app, ["history", "--song", "twinkle"])
+    assert history_result.exit_code == 0
+    assert "20260101_120000.json" in history_result.stdout
+
+    compare_result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert compare_result.exit_code == 0
+    assert "match_rate: 0.50 -> 0.80 (+0.30)" in compare_result.stdout
