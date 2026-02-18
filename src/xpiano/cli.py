@@ -443,6 +443,13 @@ def compare(
         f"missing: {prev['missing']} -> {curr['missing']} ({delta_missing:+d})")
     console.print(
         f"extra: {prev['extra']} -> {curr['extra']} ({delta_extra:+d})")
+    if delta_match > 0 and delta_missing <= 0 and delta_extra <= 0:
+        verdict = "improved"
+    elif delta_match == 0 and delta_missing == 0 and delta_extra == 0:
+        verdict = "stable"
+    else:
+        verdict = "regressed"
+    console.print(f"trend: {verdict}")
 
 
 if __name__ == "__main__":

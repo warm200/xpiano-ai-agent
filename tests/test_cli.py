@@ -316,3 +316,4 @@ def test_history_and_compare_commands(monkeypatch) -> None:
     compare_result = runner.invoke(app, ["compare", "--song", "twinkle"])
     assert compare_result.exit_code == 0
     assert "match_rate: 0.50 -> 0.80 (+0.30)" in compare_result.stdout
+    assert "trend: improved" in compare_result.stdout
