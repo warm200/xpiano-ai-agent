@@ -144,3 +144,19 @@ def test_generate_events_rejects_negative_chord_window_ms() -> None:
             alignment=alignment,
             meta=meta,
         )
+
+
+def test_generate_events_rejects_non_positive_segment_start_measure() -> None:
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 0, "end_measure": 1}]
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+    with pytest.raises(ValueError, match="invalid segment start_measure"):
+        _ = generate_events(
+            ref=ref,
+            attempt=attempt,
+            alignment=alignment,
+            meta=meta,
+            segment_id="verse1",
+        )

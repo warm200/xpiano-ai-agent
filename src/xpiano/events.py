@@ -49,10 +49,16 @@ def _segment_start_measure(meta: dict, segment_id: str | None) -> int:
         return 1
     if segment_id is None:
         first = segments[0]
-        return int(first.get("start_measure", 1))
+        start_measure = int(first.get("start_measure", 1))
+        if start_measure <= 0:
+            raise ValueError(f"invalid segment start_measure: {start_measure}")
+        return start_measure
     for segment in segments:
         if segment.get("segment_id") == segment_id:
-            return int(segment.get("start_measure", 1))
+            start_measure = int(segment.get("start_measure", 1))
+            if start_measure <= 0:
+                raise ValueError(f"invalid segment start_measure: {start_measure}")
+            return start_measure
     raise ValueError(f"segment not found: {segment_id}")
 
 
