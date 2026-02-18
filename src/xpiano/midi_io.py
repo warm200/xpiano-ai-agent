@@ -119,6 +119,15 @@ def play_midi(
     highlight_pitches: set[int] | None = None,
     velocity_boost: int = 40,
 ) -> PlayResult:
+    if bpm is not None and bpm <= 0:
+        raise ValueError("bpm must be > 0")
+    if start_sec < 0:
+        raise ValueError("start_sec must be >= 0")
+    if end_sec is not None and end_sec < 0:
+        raise ValueError("end_sec must be >= 0")
+    if end_sec is not None and end_sec < start_sec:
+        raise ValueError("end_sec must be >= start_sec")
+
     outputs = []
     try:
         outputs = mido.get_output_names()
@@ -130,7 +139,7 @@ def play_midi(
     out_name = port or outputs[0]
     tempo = mido.bpm2tempo(_first_tempo(midi))
     speed_scale = 1.0
-    if bpm and bpm > 0:
+    if bpm is not None:
         speed_scale = _first_tempo(midi) / bpm
 
     now_sec = 0.0
