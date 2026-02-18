@@ -2468,6 +2468,88 @@ def test_compare_with_playback_skips_when_attempt_path_is_directory(
     assert "Playback skipped: attempt MIDI file not found." in result.stdout
 
 
+def test_compare_with_playback_skips_when_report_paths_resolve_same_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = tmp_path / "same_report.json"
+    report.write_text("{}", encoding="utf-8")
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback"],
+    )
+    assert result.exit_code == 0
+    assert "Playback skipped: resolved previous and current report to the same file." in result.stdout
+
+
+def test_compare_with_playback_skips_when_attempt_paths_resolve_same_file(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prev_report = tmp_path / "prev_report.json"
+    curr_report = tmp_path / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    same_attempt = tmp_path / "same.mid"
+    same_attempt.write_bytes(b"same")
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {"inputs": {"attempt_mid": str(same_attempt)}},
+    )
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback"],
+    )
+    assert result.exit_code == 0
+    assert "Playback skipped: resolved previous and current attempt to the same file." in result.stdout
+
+
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
     rows = [
         {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},

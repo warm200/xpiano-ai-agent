@@ -978,6 +978,11 @@ def compare(
         return
     prev_report_file = Path(str(prev_report_path))
     curr_report_file = Path(str(curr_report_path))
+    if prev_report_file.resolve() == curr_report_file.resolve():
+        console.print(
+            "Playback skipped: resolved previous and current report to the same file."
+        )
+        return
     try:
         prev_report = load_report(prev_report_file)
         curr_report = load_report(curr_report_file)
@@ -1002,6 +1007,11 @@ def compare(
     )
     if not prev_attempt.is_file() or not curr_attempt.is_file():
         console.print("Playback skipped: attempt MIDI file not found.")
+        return
+    if prev_attempt.resolve() == curr_attempt.resolve():
+        console.print(
+            "Playback skipped: resolved previous and current attempt to the same file."
+        )
         return
 
     try:
