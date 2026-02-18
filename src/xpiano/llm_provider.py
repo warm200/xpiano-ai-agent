@@ -9,6 +9,10 @@ from typing import Any
 import anthropic
 
 
+class _ToolExecutionError(RuntimeError):
+    pass
+
+
 class LLMProvider(ABC):
     @abstractmethod
     def generate(self, prompt: str, output_schema: dict | None = None) -> str:
@@ -167,7 +171,10 @@ class ClaudeProvider(LLMProvider):
                                 "input": payload,
                             }
                         )
-                        tool_output = on_tool_use(tool_event)
+                        try:
+                            tool_output = on_tool_use(tool_event)
+                        except Exception as exc:
+                            raise _ToolExecutionError from exc
                         serialized = json.dumps(tool_output, ensure_ascii=False)
                         tool_results.append(
                             {
@@ -190,6 +197,10 @@ class ClaudeProvider(LLMProvider):
                     "type": "text_delta",
                     "text": "\n[stream terminated: too many tool rounds]",
                 }
+        except _ToolExecutionError as exc:
+            if exc.__cause__ is not None:
+                raise exc.__cause__
+            raise
         except Exception:
             async for event in super().stream_with_tool_results(
                 prompt=prompt,

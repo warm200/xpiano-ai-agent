@@ -241,3 +241,40 @@ def test_claude_provider_stream_with_tool_results_falls_back(
     provider = ClaudeProvider(api_key="test-key")
     events = asyncio.run(_collect(provider))
     assert events == [{"type": "text_delta", "text": "fallback-text"}]
+
+
+def test_claude_provider_stream_with_tool_results_propagates_tool_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeToolUseBlock:
+        type = "tool_use"
+        id = "toolu_123"
+        name = "playback_control"
+        input = {"source": "reference"}
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            return SimpleNamespace(content=[FakeToolUseBlock()])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("fallback stream should not run for tool errors")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _run(provider: ClaudeProvider) -> None:
+        async for _ in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=[{"name": "playback_control", "parameters": {"type": "object"}}],
+            on_tool_use=lambda event: (_ for _ in ()).throw(ValueError("tool failed")),
+        ):
+            pass
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(ValueError, match="tool failed"):
+        asyncio.run(_run(provider))
