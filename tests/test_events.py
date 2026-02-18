@@ -75,3 +75,25 @@ def test_generate_events_chord_partial_keeps_missing_and_extra() -> None:
     assert event_types == ["extra_note", "missing_note"]
     assert all(event.group_id is not None for event in events)
     assert all("chord partial" in (event.evidence or "") for event in events)
+
+
+def test_generate_events_respects_selected_segment_start_measure() -> None:
+    meta = _meta()
+    meta["segments"] = [
+        {"segment_id": "verse1", "start_measure": 1, "end_measure": 1},
+        {"segment_id": "verse2", "start_measure": 2, "end_measure": 2},
+    ]
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+
+    events = generate_events(
+        ref=ref,
+        attempt=attempt,
+        alignment=alignment,
+        meta=meta,
+        segment_id="verse2",
+    )
+    assert len(events) == 1
+    assert events[0].type == "timing_late"
+    assert events[0].measure == 2

@@ -43,12 +43,17 @@ def _duration_event(
     return None
 
 
-def _segment_start_measure(meta: dict) -> int:
+def _segment_start_measure(meta: dict, segment_id: str | None) -> int:
     segments = meta.get("segments", [])
     if not segments:
         return 1
-    first = segments[0]
-    return int(first.get("start_measure", 1))
+    if segment_id is None:
+        first = segments[0]
+        return int(first.get("start_measure", 1))
+    for segment in segments:
+        if segment.get("segment_id") == segment_id:
+            return int(segment.get("start_measure", 1))
+    raise ValueError(f"segment not found: {segment_id}")
 
 
 def _group_indices_by_time(indices: list[int], notes: list[NoteEvent], window_sec: float) -> list[list[int]]:
@@ -79,6 +84,7 @@ def generate_events(
     attempt: list[NoteEvent],
     alignment: AlignmentResult,
     meta: dict,
+    segment_id: str | None = None,
 ) -> list[AnalysisEvent]:
     tolerance = meta.get("tolerance", {})
     match_tol_ms = float(tolerance.get("match_tol_ms", 80))
@@ -92,7 +98,7 @@ def generate_events(
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     bpm = float(meta["bpm"])
-    start_measure = _segment_start_measure(meta)
+    start_measure = _segment_start_measure(meta, segment_id=segment_id)
 
     matched_ref_indices: set[int] = set()
     matched_attempt_indices: set[int] = set()

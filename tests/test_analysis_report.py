@@ -57,6 +57,15 @@ def _meta() -> dict:
     }
 
 
+def _meta_two_segments() -> dict:
+    meta = _meta()
+    meta["segments"] = [
+        {"segment_id": "verse1", "start_measure": 1, "end_measure": 1},
+        {"segment_id": "verse2", "start_measure": 2, "end_measure": 2},
+    ]
+    return meta
+
+
 def test_analysis_quality_tiers(tmp_path: Path) -> None:
     ref_mid = tmp_path / "ref.mid"
     good_mid = tmp_path / "good.mid"
@@ -141,3 +150,59 @@ def test_analysis_slices_notes_to_segment(tmp_path: Path) -> None:
     result = analyze(str(ref_mid), str(attempt_mid), meta)
     assert len(result.ref_notes) == 4
     assert len(result.attempt_notes) == 4
+
+
+def test_analysis_selects_target_segment_in_multi_segment_meta(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [
+        (0.0, 1.0, 60),  # measure 1
+        (1.0, 1.0, 62),
+        (2.0, 1.0, 64),
+        (3.0, 1.0, 65),
+        (4.0, 1.0, 67),  # measure 2
+        (5.0, 1.0, 69),
+        (6.0, 1.0, 71),
+        (7.0, 1.0, 72),
+    ]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+
+    result = analyze(str(ref_mid), str(attempt_mid), _meta_two_segments(), segment_id="verse2")
+    assert len(result.ref_notes) == 4
+    assert len(result.attempt_notes) == 4
+    assert result.match_rate >= 0.99
+    assert all(event.measure == 2 for event in result.events)
+
+
+def test_analysis_handles_segment_relative_attempt_recording(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    ref_notes = [
+        (0.0, 1.0, 60),  # measure 1
+        (1.0, 1.0, 62),
+        (2.0, 1.0, 64),
+        (3.0, 1.0, 65),
+        (4.0, 1.0, 67),  # measure 2
+        (5.0, 1.0, 69),
+        (6.0, 1.0, 71),
+        (7.0, 1.0, 72),
+    ]
+    segment_local_attempt = [
+        (0.0, 1.0, 67),
+        (1.0, 1.0, 69),
+        (2.0, 1.0, 71),
+        (3.0, 1.0, 72),
+    ]
+    _write_midi(ref_mid, ref_notes)
+    _write_midi(attempt_mid, segment_local_attempt)
+
+    result = analyze(
+        str(ref_mid),
+        str(attempt_mid),
+        _meta_two_segments(),
+        segment_id="verse2",
+        attempt_is_segment_relative=True,
+    )
+    assert result.match_rate >= 0.99
+    assert all(event.measure == 2 for event in result.events)

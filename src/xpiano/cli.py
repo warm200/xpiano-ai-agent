@@ -194,7 +194,13 @@ def record(
     )
     attempt_path = reference.save_attempt(
         song_id=song, midi=midi, data_dir=data_dir)
-    result = analyze(str(ref_path), str(attempt_path), meta)
+    result = analyze(
+        str(ref_path),
+        str(attempt_path),
+        meta,
+        segment_id=segment,
+        attempt_is_segment_relative=True,
+    )
     report_data = build_report(
         result=result,
         meta=meta,

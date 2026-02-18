@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from statistics import median
 
 from xpiano.alignment import Aligner, DTWAligner
@@ -36,11 +36,22 @@ def _dedup_ref_count(notes: list[NoteEvent], chord_window_ms: float) -> int:
     return kept
 
 
-def _segment_time_bounds(meta: dict) -> tuple[float, float] | None:
+def _segment_config(meta: dict, segment_id: str | None) -> dict | None:
     segments = meta.get("segments", [])
     if not segments:
         return None
-    segment = segments[0]
+    if segment_id is None:
+        return segments[0]
+    for segment in segments:
+        if segment.get("segment_id") == segment_id:
+            return segment
+    raise ValueError(f"segment not found: {segment_id}")
+
+
+def _segment_time_bounds(meta: dict, segment_id: str | None) -> tuple[float, float] | None:
+    segment = _segment_config(meta, segment_id=segment_id)
+    if segment is None:
+        return None
     bpm = float(meta.get("bpm", 120))
     beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
     start_measure = int(segment.get("start_measure", 1))
@@ -56,6 +67,19 @@ def _slice_to_segment(notes: list[NoteEvent], segment_bounds: tuple[float, float
         return notes
     start_sec, end_sec = segment_bounds
     return [note for note in notes if start_sec <= note.start_sec < end_sec]
+
+
+def _shift_notes(notes: list[NoteEvent], offset_sec: float) -> list[NoteEvent]:
+    if offset_sec == 0:
+        return notes
+    return [
+        replace(
+            note,
+            start_sec=note.start_sec - offset_sec,
+            end_sec=note.end_sec - offset_sec,
+        )
+        for note in notes
+    ]
 
 
 def _select_valid_matches(
@@ -158,11 +182,23 @@ def analyze(
     attempt_midi: str,
     meta: dict,
     aligner: Aligner | None = None,
+    segment_id: str | None = None,
+    attempt_is_segment_relative: bool = False,
 ) -> AnalysisResult:
     hand_split = int(meta.get("hand_split", {}).get("split_pitch", 60))
-    segment_bounds = _segment_time_bounds(meta)
-    ref_notes = _slice_to_segment(midi_to_notes(ref_midi, hand_split=hand_split), segment_bounds)
-    attempt_notes = _slice_to_segment(midi_to_notes(attempt_midi, hand_split=hand_split), segment_bounds)
+    segment_bounds = _segment_time_bounds(meta, segment_id=segment_id)
+    raw_ref_notes = midi_to_notes(ref_midi, hand_split=hand_split)
+    raw_attempt_notes = midi_to_notes(attempt_midi, hand_split=hand_split)
+    ref_notes = _slice_to_segment(raw_ref_notes, segment_bounds)
+    attempt_notes = _slice_to_segment(raw_attempt_notes, segment_bounds)
+    if segment_bounds is not None:
+        start_sec, end_sec = segment_bounds
+        ref_notes = _shift_notes(ref_notes, start_sec)
+        if attempt_is_segment_relative:
+            segment_duration = end_sec - start_sec
+            attempt_notes = [note for note in raw_attempt_notes if 0 <= note.start_sec < segment_duration]
+        else:
+            attempt_notes = _shift_notes(attempt_notes, start_sec)
 
     engine = aligner or DTWAligner()
     alignment = engine.align_offline(ref_notes, attempt_notes)
@@ -181,7 +217,12 @@ def analyze(
     matched = len(valid_matches)
     match_rate = 0.0 if ref_count == 0 else matched / ref_count
     events = generate_events(
-        ref=ref_notes, attempt=attempt_notes, alignment=alignment, meta=meta)
+        ref=ref_notes,
+        attempt=attempt_notes,
+        alignment=alignment,
+        meta=meta,
+        segment_id=segment_id,
+    )
     metrics = _build_metrics(
         ref_notes=ref_notes, attempt_notes=attempt_notes, matches=valid_matches)
 
