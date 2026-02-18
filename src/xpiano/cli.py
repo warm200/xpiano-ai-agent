@@ -26,12 +26,14 @@ console = Console()
 def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     try:
         left, right = time_sig.split("/", maxsplit=1)
-        beats_per_measure = int(left)
-        beat_unit = int(right)
+        beats_per_measure = int(left.strip())
+        beat_unit = int(right.strip())
     except ValueError as exc:
         raise typer.BadParameter("time signature must be like 4/4") from exc
     if beats_per_measure <= 0 or beat_unit <= 0:
         raise typer.BadParameter("time signature values must be > 0")
+    if beat_unit not in {1, 2, 4, 8, 16, 32}:
+        raise typer.BadParameter("time signature beat unit must be one of 1,2,4,8,16,32")
     return beats_per_measure, beat_unit
 
 
