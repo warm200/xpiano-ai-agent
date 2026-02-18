@@ -256,6 +256,23 @@ def _resolve_attempt_path(
     return raw.resolve()
 
 
+def _resolve_report_path_from_row(
+    row: dict,
+    song_id: str,
+    data_dir: Path | None,
+) -> Path | None:
+    raw_path = row.get("path")
+    if raw_path:
+        return Path(str(raw_path))
+    filename = str(row.get("filename", "")).strip()
+    if not filename:
+        return None
+    candidate = reference.song_dir(song_id=song_id, data_dir=data_dir) / "reports" / filename
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def _safe_note_name(note_number: int) -> str:
     try:
         return pretty_midi.note_number_to_name(int(note_number))
@@ -862,8 +879,12 @@ def compare(
     if not playback:
         return
 
-    prev_report_path = prev.get("path")
-    curr_report_path = curr.get("path")
+    prev_report_path = _resolve_report_path_from_row(
+        row=prev, song_id=song, data_dir=data_dir
+    )
+    curr_report_path = _resolve_report_path_from_row(
+        row=curr, song_id=song, data_dir=data_dir
+    )
     if not prev_report_path or not curr_report_path:
         console.print("Playback skipped: report history does not include file paths.")
         return
