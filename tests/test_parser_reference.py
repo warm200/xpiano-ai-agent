@@ -30,6 +30,24 @@ def test_import_reference_uses_custom_segment_id(xpiano_home: Path, sample_midi_
     assert meta["segments"][0]["segment_id"] == "verse1"
 
 
+def test_import_reference_rejects_song_id_with_path_separator(sample_midi_path: Path) -> None:
+    try:
+        _ = reference.import_reference(sample_midi_path, song_id="bad/name")
+    except ValueError as exc:
+        assert "song_id must not contain path separators" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid song_id")
+
+
+def test_import_reference_rejects_segment_id_with_path_separator(sample_midi_path: Path) -> None:
+    try:
+        _ = reference.import_reference(sample_midi_path, song_id="twinkle", segment_id="bad/name")
+    except ValueError as exc:
+        assert "segment_id must not contain path separators" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid segment_id")
+
+
 def test_import_reference_refreshes_meta_tempo_from_midi(
     xpiano_home: Path,
     sample_midi_path: Path,

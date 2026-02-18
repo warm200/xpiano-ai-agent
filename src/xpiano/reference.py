@@ -22,6 +22,30 @@ class SongInfo:
     updated_at: str | None
 
 
+def _validate_song_id(song_id: str) -> str:
+    cleaned = song_id.strip()
+    if not cleaned:
+        raise ValueError("song_id must be non-empty")
+    if cleaned in {".", ".."}:
+        raise ValueError("song_id must not be '.' or '..'")
+    if "/" in cleaned or "\\" in cleaned:
+        raise ValueError("song_id must not contain path separators")
+    return cleaned
+
+
+def _validate_segment_id(segment_id: str | None) -> str | None:
+    if segment_id is None:
+        return None
+    cleaned = segment_id.strip()
+    if not cleaned:
+        raise ValueError("segment_id must be non-empty")
+    if cleaned in {".", ".."}:
+        raise ValueError("segment_id must not be '.' or '..'")
+    if "/" in cleaned or "\\" in cleaned:
+        raise ValueError("segment_id must not contain path separators")
+    return cleaned
+
+
 def songs_dir(data_dir: str | Path | None = None) -> Path:
     base = config.xpiano_home(data_dir)
     song_root = base / "songs"
@@ -30,7 +54,7 @@ def songs_dir(data_dir: str | Path | None = None) -> Path:
 
 
 def song_dir(song_id: str, data_dir: str | Path | None = None) -> Path:
-    path = songs_dir(data_dir) / song_id
+    path = songs_dir(data_dir) / _validate_song_id(song_id)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -96,6 +120,8 @@ def import_reference(
     data_dir: str | Path | None = None,
     segment_id: str | None = None,
 ) -> Path:
+    song_id = _validate_song_id(song_id)
+    segment_id = _validate_segment_id(segment_id)
     src = Path(midi_path).expanduser()
     if not src.exists():
         raise FileNotFoundError(f"reference midi not found: {src}")
@@ -225,14 +251,17 @@ def record_reference(
     output_port: str | None = None,
     data_dir: str | Path | None = None,
 ) -> Path:
+    validated_segment = _validate_segment_id(segment_id)
+    if validated_segment is None:
+        raise ValueError("segment_id must be non-empty")
     meta = load_meta(song_id=song_id, data_dir=data_dir)
     segment: dict[str, Any] | None = None
     for item in meta.get("segments", []):
-        if item.get("segment_id") == segment_id:
+        if item.get("segment_id") == validated_segment:
             segment = item
             break
     if segment is None:
-        raise ValueError(f"segment not found: {segment_id}")
+        raise ValueError(f"segment not found: {validated_segment}")
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     beat_unit = int(meta["time_signature"].get("beat_unit", 4))
