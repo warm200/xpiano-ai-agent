@@ -7,8 +7,9 @@ import mido
 from typer.testing import CliRunner
 
 import xpiano.cli as cli_module
+from xpiano.analysis import AnalysisResult
 from xpiano.cli import app
-from xpiano.models import PlayResult
+from xpiano.models import AlignmentResult, AnalysisEvent, PlayResult
 from xpiano.wait_mode import WaitModeResult
 
 runner = CliRunner()
@@ -343,6 +344,48 @@ def test_record_full_tier_falls_back_when_provider_unavailable(
     assert record_result.exit_code == 0
     assert "Provider unavailable" in record_result.stdout
     assert "Saved coaching:" in record_result.stdout
+
+
+def test_record_too_low_skips_piano_roll_diff(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.render_piano_roll_diff", lambda *args, **kwargs: "SHOULD_NOT_PRINT")
+
+    def _fake_analyze(*args, **kwargs):
+        _ = args, kwargs
+        return AnalysisResult(
+            ref_notes=[],
+            attempt_notes=[],
+            events=[
+                AnalysisEvent(
+                    type="missing_note",
+                    measure=1,
+                    beat=1.0,
+                    pitch=60,
+                    pitch_name="C4",
+                    hand="R",
+                    severity="high",
+                )
+            ],
+            metrics={"timing": {}, "duration": {}, "dynamics": {}},
+            match_rate=0.1,
+            quality_tier="too_low",
+            alignment=AlignmentResult(path=[], cost=0.0, method="test"),
+            matched=0,
+        )
+
+    monkeypatch.setattr("xpiano.cli.analyze", _fake_analyze)
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "quality_tier=too_low" in record_result.stdout
+    assert "SHOULD_NOT_PRINT" not in record_result.stdout
 
 
 def test_coach_command_with_mocked_provider(
