@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import mido
+
 from xpiano import parser, reference
 
 
@@ -28,3 +30,32 @@ def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path)
     assert len(songs) == 1
     assert songs[0].song_id == "twinkle"
     assert songs[0].has_reference is True
+
+
+def test_record_reference_uses_meta_segment(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    reference.import_reference(sample_midi_path, song_id="twinkle")
+
+    midi = mido.MidiFile(ticks_per_beat=480)
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+    track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(100), time=0))
+    track.append(mido.MetaMessage("time_signature", numerator=4, denominator=4, time=0))
+    track.append(mido.Message("note_on", note=60, velocity=80, time=0))
+    track.append(mido.Message("note_off", note=60, velocity=0, time=480))
+    track.append(mido.MetaMessage("end_of_track", time=1))
+
+    calls: list[dict] = []
+
+    def fake_record(**kwargs):
+        calls.append(kwargs)
+        return midi
+
+    monkeypatch.setattr("xpiano.reference.midi_io.record", fake_record)
+    out = reference.record_reference(song_id="twinkle", segment_id="default")
+    assert out.exists()
+    assert len(calls) == 1
+    assert calls[0]["duration_sec"] > 0

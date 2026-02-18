@@ -10,7 +10,7 @@ from typing import Any
 
 import mido
 
-from xpiano import config, parser
+from xpiano import config, midi_io, parser
 from xpiano.schemas import validate
 
 
@@ -184,6 +184,38 @@ def save_reference(song_id: str, midi: mido.MidiFile, data_dir: str | Path | Non
     with ref_notes_path.open("w", encoding="utf-8") as fp:
         json.dump([asdict(n) for n in notes], fp, ensure_ascii=True, indent=2)
     return target_ref
+
+
+def record_reference(
+    song_id: str,
+    segment_id: str,
+    port: str | None = None,
+    output_port: str | None = None,
+    data_dir: str | Path | None = None,
+) -> Path:
+    meta = load_meta(song_id=song_id, data_dir=data_dir)
+    segment: dict[str, Any] | None = None
+    for item in meta.get("segments", []):
+        if item.get("segment_id") == segment_id:
+            segment = item
+            break
+    if segment is None:
+        raise ValueError(f"segment not found: {segment_id}")
+
+    beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    bpm = float(meta["bpm"])
+    measures = int(segment["end_measure"]) - int(segment["start_measure"]) + 1
+    count_in_measures = int(segment.get("count_in_measures", 1))
+    duration_sec = measures * beats_per_measure * (60.0 / bpm)
+    count_in_beats = count_in_measures * beats_per_measure
+    midi = midi_io.record(
+        port=port,
+        duration_sec=duration_sec,
+        count_in_beats=count_in_beats,
+        bpm=bpm,
+        output_port=output_port,
+    )
+    return save_reference(song_id=song_id, midi=midi, data_dir=data_dir)
 
 
 def reference_midi_path(song_id: str, data_dir: str | Path | None = None) -> Path:
