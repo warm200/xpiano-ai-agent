@@ -33,3 +33,51 @@ def test_record_writes_configured_time_signature(monkeypatch) -> None:
     assert len(time_sig_msgs) == 1
     assert time_sig_msgs[0].numerator == 3
     assert time_sig_msgs[0].denominator == 8
+
+
+def test_record_rejects_non_positive_beats_per_measure() -> None:
+    try:
+        _ = midi_io.record(
+            port=None,
+            duration_sec=0.01,
+            count_in_beats=0,
+            bpm=90.0,
+            beats_per_measure=0,
+            beat_unit=4,
+        )
+    except ValueError as exc:
+        assert "beats_per_measure must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive beats_per_measure")
+
+
+def test_record_rejects_non_positive_beat_unit() -> None:
+    try:
+        _ = midi_io.record(
+            port=None,
+            duration_sec=0.01,
+            count_in_beats=0,
+            bpm=90.0,
+            beats_per_measure=4,
+            beat_unit=0,
+        )
+    except ValueError as exc:
+        assert "beat_unit must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive beat_unit")
+
+
+def test_record_rejects_unsupported_beat_unit() -> None:
+    try:
+        _ = midi_io.record(
+            port=None,
+            duration_sec=0.01,
+            count_in_beats=0,
+            bpm=90.0,
+            beats_per_measure=4,
+            beat_unit=3,
+        )
+    except ValueError as exc:
+        assert "beat_unit must be one of 1,2,4,8,16" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unsupported beat_unit")
