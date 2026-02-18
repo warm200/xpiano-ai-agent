@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -135,6 +136,11 @@ def _normalize_pitch_set(value: Any) -> set[int]:
     for pitch in iterable:
         if isinstance(pitch, bool):
             raise ValueError("invalid event_stream pitch: expected integer")
+        if isinstance(pitch, float):
+            if not math.isfinite(pitch):
+                raise ValueError("invalid event_stream pitch: expected finite number")
+            if not pitch.is_integer():
+                raise ValueError("invalid event_stream pitch: expected integer")
         out.add(int(pitch))
     return out
 
