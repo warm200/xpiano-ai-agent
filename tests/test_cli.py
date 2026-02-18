@@ -74,6 +74,58 @@ def test_record_and_report_commands(
     assert "match_rate=" in report_result.stdout
 
 
+def test_record_full_tier_saves_coaching(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record",
+                        lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+    monkeypatch.setattr(
+        "xpiano.cli.get_coaching",
+        lambda **kwargs: {
+            "goal": "Fix bar 2",
+            "top_issues": [{"title": "Wrong pitch", "why": "finger slip", "evidence": ["M2 wrong_pitch x2"]}],
+            "drills": [
+                {
+                    "name": "Slow loop",
+                    "minutes": 7,
+                    "bpm": 45,
+                    "how": ["Loop M2", "Count beats"],
+                    "reps": "5x",
+                    "focus_measures": "2",
+                },
+                {
+                    "name": "Connect bars",
+                    "minutes": 8,
+                    "bpm": 50,
+                    "how": ["Play M2-M3", "No pause"],
+                    "reps": "4x",
+                    "focus_measures": "2-3",
+                },
+            ],
+            "pass_conditions": {
+                "before_speed_up": ["No wrong notes", "Stable timing"],
+                "speed_up_rule": "+5 BPM after 2 clean reps",
+            },
+            "next_recording": {"what_to_record": "M2-M3", "tips": ["Relax wrist", "Watch beat 1"]},
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+    )
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Saved coaching:" in record_result.stdout
+
+
 def test_coach_command_with_mocked_provider(
     xpiano_home: Path,
     monkeypatch,

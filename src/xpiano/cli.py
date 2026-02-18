@@ -142,7 +142,7 @@ def record(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
-    config.ensure_config(data_dir=data_dir)
+    cfg = config.ensure_config(data_dir=data_dir)
     meta = reference.load_meta(song_id=song, data_dir=data_dir)
     segment_cfg = _segment_meta(meta, segment_id=segment)
     ref_path = reference.reference_midi_path(song_id=song, data_dir=data_dir)
@@ -178,14 +178,32 @@ def record(
 
     console.print(f"Saved attempt: {attempt_path}")
     console.print(f"Saved report: {report_path}")
-    console.print(render_report(report_data))
-    console.print(f"quality_tier={result.quality_tier}")
 
+    coaching: dict | None = None
     if result.quality_tier == "too_low":
+        console.print(render_report(report_data))
+        console.print(f"quality_tier={result.quality_tier}")
         console.print(render_low_match(
             match_rate=result.match_rate, song=song, segment=segment))
     elif result.quality_tier == "simplified":
+        console.print(render_report(report_data))
+        console.print(f"quality_tier={result.quality_tier}")
         console.print("Partial match. Showing top 3 issues first.")
+    else:
+        try:
+            provider = create_provider(cfg)
+            coaching = get_coaching(
+                report=report_data,
+                provider=provider,
+                max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
+            )
+            coaching_path = save_coaching(
+                coaching=coaching, song_id=song, data_dir=data_dir)
+            console.print(f"Saved coaching: {coaching_path}")
+        except Exception as exc:
+            console.print(f"Coaching skipped: {exc}")
+        console.print(render_report(report_data, coaching=coaching))
+        console.print(f"quality_tier={result.quality_tier}")
     console.print(render_piano_roll_diff(report_data))
 
 
