@@ -24,6 +24,12 @@ def test_import_reference_creates_meta_and_notes(xpiano_home: Path, sample_midi_
     assert len(meta["segments"]) == 1
 
 
+def test_import_reference_uses_custom_segment_id(xpiano_home: Path, sample_midi_path: Path) -> None:
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle", segment_id="verse1")
+    meta = reference.load_meta("twinkle")
+    assert meta["segments"][0]["segment_id"] == "verse1"
+
+
 def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path) -> None:
     reference.import_reference(sample_midi_path, song_id="twinkle")
     songs = reference.list_songs()

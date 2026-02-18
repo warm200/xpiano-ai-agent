@@ -136,11 +136,12 @@ def setup(
 def import_song(
     file: Path = typer.Option(..., "--file", exists=True, dir_okay=False),
     song: str = typer.Option(..., "--song"),
+    segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     config.ensure_config(data_dir=data_dir)
     path = reference.import_reference(
-        midi_path=file, song_id=song, data_dir=data_dir)
+        midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)
     console.print(f"Imported reference MIDI: {path}")
 
 

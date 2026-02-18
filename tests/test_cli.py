@@ -114,6 +114,17 @@ def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     assert "2/1" in list_result.stdout
 
 
+def test_import_command_accepts_segment(sample_midi_path: Path, xpiano_home: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["segments"][0]["segment_id"] == "verse1"
+
+
 def _recorded_midi() -> mido.MidiFile:
     mid = mido.MidiFile(ticks_per_beat=480)
     track = mido.MidiTrack()

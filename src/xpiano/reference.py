@@ -65,6 +65,7 @@ def _extract_midi_defaults(midi_path: Path) -> dict[str, Any]:
 def _default_meta(
     song_id: str,
     midi_defaults: dict[str, Any],
+    default_segment_id: str = "default",
     data_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     cfg = config.load_config(data_dir=data_dir)
@@ -77,8 +78,8 @@ def _default_meta(
         "bpm": midi_defaults["bpm"],
         "segments": [
             {
-                "segment_id": "default",
-                "label": "default",
+                "segment_id": default_segment_id,
+                "label": default_segment_id,
                 "start_measure": 1,
                 "end_measure": midi_defaults["measures"],
                 "count_in_measures": 1,
@@ -89,7 +90,12 @@ def _default_meta(
     }
 
 
-def import_reference(midi_path: str | Path, song_id: str, data_dir: str | Path | None = None) -> Path:
+def import_reference(
+    midi_path: str | Path,
+    song_id: str,
+    data_dir: str | Path | None = None,
+    segment_id: str | None = None,
+) -> Path:
     src = Path(midi_path).expanduser()
     if not src.exists():
         raise FileNotFoundError(f"reference midi not found: {src}")
@@ -108,7 +114,12 @@ def import_reference(midi_path: str | Path, song_id: str, data_dir: str | Path |
         defaults = _extract_midi_defaults(target_ref)
         save_meta(
             song_id=song_id,
-            meta=_default_meta(song_id, defaults, data_dir=data_dir),
+            meta=_default_meta(
+                song_id,
+                defaults,
+                default_segment_id=segment_id or "default",
+                data_dir=data_dir,
+            ),
             data_dir=data_dir,
         )
     return target_ref
