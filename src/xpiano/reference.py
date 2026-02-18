@@ -109,9 +109,9 @@ def import_reference(
     with ref_notes_path.open("w", encoding="utf-8") as fp:
         json.dump([asdict(n) for n in notes], fp, ensure_ascii=True, indent=2)
 
+    defaults = _extract_midi_defaults(target_ref)
     meta_path = target_song_dir / "meta.json"
     if not meta_path.exists():
-        defaults = _extract_midi_defaults(target_ref)
         save_meta(
             song_id=song_id,
             meta=_default_meta(
@@ -122,6 +122,14 @@ def import_reference(
             ),
             data_dir=data_dir,
         )
+    else:
+        meta = load_meta(song_id=song_id, data_dir=data_dir)
+        meta["bpm"] = defaults["bpm"]
+        meta["time_signature"] = {
+            "beats_per_measure": defaults["beats_per_measure"],
+            "beat_unit": defaults["beat_unit"],
+        }
+        save_meta(song_id=song_id, meta=meta, data_dir=data_dir)
     return target_ref
 
 

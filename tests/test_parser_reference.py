@@ -30,6 +30,22 @@ def test_import_reference_uses_custom_segment_id(xpiano_home: Path, sample_midi_
     assert meta["segments"][0]["segment_id"] == "verse1"
 
 
+def test_import_reference_refreshes_meta_tempo_from_midi(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+) -> None:
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    meta = reference.load_meta("twinkle")
+    meta["bpm"] = 80
+    reference.save_meta(song_id="twinkle", meta=meta)
+
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    refreshed = reference.load_meta("twinkle")
+    assert refreshed["bpm"] == 100.0
+    assert refreshed["time_signature"]["beats_per_measure"] == 4
+    assert refreshed["time_signature"]["beat_unit"] == 4
+
+
 def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path) -> None:
     reference.import_reference(sample_midi_path, song_id="twinkle")
     songs = reference.list_songs()
