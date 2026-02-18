@@ -956,12 +956,18 @@ def compare(
         return
     if segment is None:
         curr = rows[-1]
-        curr_segment = curr.get("segment_id")
+        curr_segment = str(curr.get("segment_id", "")).strip()
+        if not curr_segment:
+            console.print(
+                "Need at least 2 reports in the same segment to compare. "
+                "Use --segment or increase --attempts."
+            )
+            return
         prev = next(
             (
                 row
                 for row in reversed(rows[:-1])
-                if row.get("segment_id") == curr_segment
+                if str(row.get("segment_id", "")).strip() == curr_segment
             ),
             None,
         )

@@ -2082,6 +2082,33 @@ def test_compare_without_segment_requires_same_segment_pair(monkeypatch) -> None
     assert "Need at least 2 reports in the same segment to compare" in result.stdout
 
 
+def test_compare_without_segment_requires_named_current_segment(monkeypatch) -> None:
+    rows = [
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": None,
+            "match_rate": 0.9,
+            "missing": 1,
+            "extra": 0,
+            "matched": 9,
+            "ref_notes": 10,
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Need at least 2 reports in the same segment to compare" in result.stdout
+
+
 def test_compare_handles_malformed_history_rows(monkeypatch) -> None:
     rows = [
         {"segment_id": "verse1", "filename": None, "match_rate": "bad", "missing": "x", "extra": "y"},
