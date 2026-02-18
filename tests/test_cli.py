@@ -2173,6 +2173,75 @@ def test_compare_with_playback_uses_filename_when_row_path_missing(
     assert "Playback compare:" in result.stdout
 
 
+def test_compare_with_playback_uses_data_dir_for_relative_row_path(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    prev_report = reports_dir / "prev_report.json"
+    curr_report = reports_dir / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    prev_attempt = xpiano_home / "songs" / "twinkle" / "attempts" / "prev.mid"
+    curr_attempt = xpiano_home / "songs" / "twinkle" / "attempts" / "curr.mid"
+    prev_attempt.parent.mkdir(parents=True, exist_ok=True)
+    prev_attempt.write_bytes(b"prev")
+    curr_attempt.write_bytes(b"curr")
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": "songs/twinkle/reports/prev_report.json",
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": "songs/twinkle/reports/curr_report.json",
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {
+            "inputs": {
+                "attempt_mid": str(prev_attempt if "prev_report" in str(path) else curr_attempt)
+            }
+        },
+    )
+    monkeypatch.setattr("xpiano.cli.mido.MidiFile", lambda path: f"midi::{Path(path).name}")
+    monkeypatch.setattr("xpiano.cli.time.sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        "xpiano.cli.midi_io.play_midi",
+        lambda **kwargs: PlayResult(status="played", duration_sec=1.0),
+    )
+    result = runner.invoke(
+        app,
+        [
+            "compare",
+            "--song",
+            "twinkle",
+            "--playback",
+            "--delay-between",
+            "0",
+            "--data-dir",
+            str(xpiano_home),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "Playback compare:" in result.stdout
+
+
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
     rows = [
         {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},

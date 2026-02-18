@@ -263,7 +263,18 @@ def _resolve_report_path_from_row(
 ) -> Path | None:
     raw_path = row.get("path")
     if raw_path:
-        return Path(str(raw_path))
+        candidate = Path(str(raw_path))
+        if candidate.is_absolute():
+            if candidate.exists():
+                return candidate
+        else:
+            cwd_candidate = candidate.resolve()
+            if cwd_candidate.exists():
+                return cwd_candidate
+            if data_dir is not None:
+                data_candidate = (data_dir / candidate).resolve()
+                if data_candidate.exists():
+                    return data_candidate
     filename = str(row.get("filename", "")).strip()
     if not filename:
         return None
