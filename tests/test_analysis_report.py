@@ -235,6 +235,18 @@ def test_analysis_rejects_non_positive_beats_per_measure(tmp_path: Path) -> None
         _ = analyze(str(ref_mid), str(attempt_mid), meta)
 
 
+def test_analysis_rejects_invalid_segment_range(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 2, "end_measure": 1}]
+    with pytest.raises(ValueError, match="invalid segment range"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta, segment_id="verse1")
+
+
 def test_report_limits_top_problems_for_simplified_quality(tmp_path: Path) -> None:
     result = AnalysisResult(
         ref_notes=[],

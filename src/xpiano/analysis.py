@@ -56,6 +56,8 @@ def _segment_time_bounds(meta: dict, segment_id: str | None) -> tuple[float, flo
     beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
     start_measure = int(segment.get("start_measure", 1))
     end_measure = int(segment.get("end_measure", start_measure))
+    if end_measure < start_measure:
+        raise ValueError(f"invalid segment range: {start_measure}-{end_measure}")
     beat_sec = 60.0 / bpm
     start_sec = (start_measure - 1) * beats_per_measure * beat_sec
     end_sec = end_measure * beats_per_measure * beat_sec
