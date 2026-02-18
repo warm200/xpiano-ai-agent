@@ -12,7 +12,8 @@ from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
 from xpiano.display import (render_low_match, render_piano_roll_diff,
                             render_playback_indicator, render_report)
-from xpiano.llm_coach import get_coaching, save_coaching, stream_coaching
+from xpiano.llm_coach import (fallback_output, get_coaching, save_coaching,
+                              stream_coaching)
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
 from xpiano.report import build_history, build_report, save_report
@@ -306,8 +307,21 @@ def coach(
     with report_path.open("r", encoding="utf-8") as fp:
         report_payload = json.load(fp)
 
-    provider = create_provider(cfg)
+    provider = None
+    try:
+        provider = create_provider(cfg)
+    except Exception as exc:
+        console.print(f"Provider unavailable, using fallback coaching: {exc}")
+
     if stream:
+        if provider is None:
+            coaching = fallback_output(report_payload)
+            output_path = save_coaching(
+                coaching=coaching, song_id=song, data_dir=data_dir)
+            console.print(f"Saved coaching: {output_path}")
+            console.print(f"Goal: {coaching.get('goal', '-')}")
+            return
+
         segment_id = str(report_payload.get("segment_id", "default"))
 
         class _PlaybackAdapter:
@@ -353,11 +367,14 @@ def coach(
         console.print("Streaming coaching finished.")
         return
 
-    coaching = get_coaching(
-        report=report_payload,
-        provider=provider,
-        max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
-    )
+    if provider is None:
+        coaching = fallback_output(report_payload)
+    else:
+        coaching = get_coaching(
+            report=report_payload,
+            provider=provider,
+            max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
+        )
     output_path = save_coaching(
         coaching=coaching, song_id=song, data_dir=data_dir)
     console.print(f"Saved coaching: {output_path}")
