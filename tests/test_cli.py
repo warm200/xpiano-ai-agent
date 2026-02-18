@@ -138,7 +138,8 @@ def test_playback_command_calls_engine(monkeypatch) -> None:
     )
     result = runner.invoke(
         app,
-        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference"],
+        ["playback", "--song", "twinkle", "--segment",
+            "verse1", "--mode", "reference"],
     )
     assert result.exit_code == 0
     assert "Playback status: played" in result.stdout

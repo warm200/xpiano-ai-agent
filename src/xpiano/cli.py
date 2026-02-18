@@ -9,6 +9,8 @@ from rich.table import Table
 
 from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
+from xpiano.display import (render_low_match, render_piano_roll_diff,
+                            render_report)
 from xpiano.llm_coach import get_coaching, save_coaching
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
@@ -176,21 +178,15 @@ def record(
 
     console.print(f"Saved attempt: {attempt_path}")
     console.print(f"Saved report: {report_path}")
-    console.print(
-        f"match_rate={report_data['summary']['match_rate']:.2f} "
-        f"quality_tier={result.quality_tier}"
-    )
+    console.print(render_report(report_data))
+    console.print(f"quality_tier={result.quality_tier}")
 
     if result.quality_tier == "too_low":
-        console.print("Low match quality. Try slow playback and wait mode.")
+        console.print(render_low_match(
+            match_rate=result.match_rate, song=song, segment=segment))
     elif result.quality_tier == "simplified":
         console.print("Partial match. Showing top 3 issues first.")
-    else:
-        top = report_data["summary"].get("top_problems", [])
-        if top:
-            console.print("Top problems:")
-            for problem in top[:3]:
-                console.print(f"- {problem}")
+    console.print(render_piano_roll_diff(report_data))
 
 
 @app.command("report")
@@ -202,17 +198,9 @@ def report(
     report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
     with report_path.open("r", encoding="utf-8") as fp:
         payload = json.load(fp)
-    summary = payload.get("summary", {})
-    counts = summary.get("counts", {})
     console.print(f"Report: {report_path}")
-    console.print(f"match_rate={summary.get('match_rate', 0):.2f}")
-    console.print(
-        f"ref={counts.get('ref_notes', 0)} "
-        f"attempt={counts.get('attempt_notes', 0)} "
-        f"matched={counts.get('matched', 0)} "
-        f"missing={counts.get('missing', 0)} "
-        f"extra={counts.get('extra', 0)}"
-    )
+    console.print(render_report(payload))
+    console.print(render_piano_roll_diff(payload))
 
 
 @app.command("coach")
@@ -260,7 +248,8 @@ def playback(
         output_port=output_port,
         data_dir=data_dir,
     )
-    console.print(f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
+    console.print(
+        f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
 
 
 @app.command("wait")

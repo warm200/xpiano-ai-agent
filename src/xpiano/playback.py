@@ -106,7 +106,8 @@ def play(
 
     if source == "reference":
         return _play_single(
-            midi_path=reference.reference_midi_path(song_id=song_id, data_dir=data_dir),
+            midi_path=reference.reference_midi_path(
+                song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
             start_sec=start_sec,
@@ -116,7 +117,8 @@ def play(
 
     if source == "attempt":
         return _play_single(
-            midi_path=reference.latest_attempt_path(song_id=song_id, data_dir=data_dir),
+            midi_path=reference.latest_attempt_path(
+                song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
             start_sec=start_sec,
@@ -126,7 +128,8 @@ def play(
 
     if source == "comparison":
         first = _play_single(
-            midi_path=reference.latest_attempt_path(song_id=song_id, data_dir=data_dir),
+            midi_path=reference.latest_attempt_path(
+                song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
             start_sec=start_sec,
@@ -137,7 +140,8 @@ def play(
             return first
         time.sleep(max(0.0, delay_between))
         second = _play_single(
-            midi_path=reference.reference_midi_path(song_id=song_id, data_dir=data_dir),
+            midi_path=reference.reference_midi_path(
+                song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
             start_sec=start_sec,

@@ -13,8 +13,10 @@ def _write_simple_midi(path: Path) -> None:
     mid = mido.MidiFile(ticks_per_beat=480)
     track = mido.MidiTrack()
     mid.tracks.append(track)
-    track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(120), time=0))
-    track.append(mido.MetaMessage("time_signature", numerator=4, denominator=4, time=0))
+    track.append(mido.MetaMessage(
+        "set_tempo", tempo=mido.bpm2tempo(120), time=0))
+    track.append(mido.MetaMessage("time_signature",
+                 numerator=4, denominator=4, time=0))
     track.append(mido.Message("note_on", note=60, velocity=80, time=0))
     track.append(mido.Message("note_off", note=60, velocity=0, time=480))
     track.append(mido.MetaMessage("end_of_track", time=1))

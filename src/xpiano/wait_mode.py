@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
-from collections.abc import Iterable
 
 import mido
 
@@ -66,7 +66,8 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
         beat = 1.0 + (total_beats % beats_per_measure)
         pitches = {note.pitch for note in group}
         names = sorted({note.pitch_name for note in group})
-        steps.append(PitchSetStep(measure=measure, beat=beat, pitches=pitches, pitch_names=names))
+        steps.append(PitchSetStep(measure=measure, beat=beat,
+                     pitches=pitches, pitch_names=names))
     return steps
 
 
@@ -96,7 +97,8 @@ def run_wait_mode(
         meta["bpm"] = bpm
     _ = _segment_start_measure(meta, segment_id=segment_id)
 
-    notes = [_dict_to_note(note) for note in load_reference_notes(song_id=song_id, data_dir=data_dir)]
+    notes = [_dict_to_note(note) for note in load_reference_notes(
+        song_id=song_id, data_dir=data_dir)]
     steps = build_pitch_sequence(notes=notes, meta=meta)
     if not steps:
         return WaitModeResult(total_steps=0, completed=0, errors=0)
