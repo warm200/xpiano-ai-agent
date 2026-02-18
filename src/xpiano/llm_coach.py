@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from collections.abc import Callable
 
 from xpiano.llm_provider import LLMProvider
 from xpiano.reference import song_dir
@@ -199,13 +200,21 @@ async def stream_coaching(
     report: dict[str, Any],
     provider: LLMProvider,
     playback_engine: Any,
-) -> None:
+    on_text: Callable[[str], None] | None = None,
+) -> str:
     prompt = build_coaching_prompt(report)
+    chunks: list[str] = []
     async for event in provider.stream(prompt=prompt, tools=[PLAYBACK_TOOL_SCHEMA]):
         event_type = event.get("type")
         if event_type == "text_delta":
+            text = str(event.get("text", ""))
+            if text:
+                chunks.append(text)
+                if on_text is not None:
+                    on_text(text)
             continue
         if event_type == "tool_use":
             payload = event.get("input", {})
             if payload:
                 playback_engine.play(**payload)
+    return "".join(chunks)

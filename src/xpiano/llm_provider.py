@@ -27,6 +27,27 @@ def _extract_text(content: Any) -> str:
     return "\n".join(parts).strip()
 
 
+def _normalize_tools(tools: list[dict] | None) -> list[dict] | None:
+    if not tools:
+        return None
+    normalized: list[dict] = []
+    for tool in tools:
+        if "input_schema" in tool:
+            normalized.append(tool)
+            continue
+        if "parameters" in tool:
+            normalized.append(
+                {
+                    "name": tool.get("name"),
+                    "description": tool.get("description"),
+                    "input_schema": tool.get("parameters"),
+                }
+            )
+            continue
+        normalized.append(tool)
+    return normalized
+
+
 class ClaudeProvider(LLMProvider):
     def __init__(
         self,
@@ -58,8 +79,27 @@ class ClaudeProvider(LLMProvider):
         return text
 
     async def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
-        _ = tools
-        yield {"type": "text_delta", "text": self.generate(prompt)}
+        stream_tools = _normalize_tools(tools)
+        with self.client.messages.stream(
+            model=self.model,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            messages=[{"role": "user", "content": prompt}],
+            tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
+        ) as stream:
+            for event in stream:
+                event_type = getattr(event, "type", "")
+                if event_type == "text":
+                    yield {"type": "text_delta", "text": str(getattr(event, "text", ""))}
+                elif event_type == "content_block_stop":
+                    block = getattr(event, "content_block", None)
+                    if getattr(block, "type", None) == "tool_use":
+                        input_payload = dict(getattr(block, "input", {}) or {})
+                        yield {
+                            "type": "tool_use",
+                            "name": getattr(block, "name", None),
+                            "input": input_payload,
+                        }
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:

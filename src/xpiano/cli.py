@@ -296,8 +296,10 @@ def coach(
                 report=report_payload,
                 provider=provider,
                 playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
+                on_text=lambda text: console.print(text, end=""),
             )
         )
+        console.print()
         console.print("Streaming coaching finished.")
         return
 
