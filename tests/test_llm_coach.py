@@ -298,6 +298,50 @@ def test_stream_coaching_returns_playback_result_to_provider() -> None:
     assert provider.tool_results == [{"status": "played", "duration_sec": 2.3}]
 
 
+def test_stream_coaching_rejects_negative_dict_playback_duration() -> None:
+    class Playback:
+        def play(self, **kwargs):
+            _ = kwargs
+            return {"status": "played", "duration_sec": -1}
+
+    provider = FakeToolLoopProvider()
+    playback = Playback()
+    try:
+        _ = asyncio.run(
+            stream_coaching(
+                report=_report(),
+                provider=provider,
+                playback_engine=playback,
+            )
+        )
+    except ValueError as exc:
+        assert "invalid playback result duration_sec" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid playback duration")
+
+
+def test_stream_coaching_rejects_nan_dict_playback_duration() -> None:
+    class Playback:
+        def play(self, **kwargs):
+            _ = kwargs
+            return {"status": "played", "duration_sec": float("nan")}
+
+    provider = FakeToolLoopProvider()
+    playback = Playback()
+    try:
+        _ = asyncio.run(
+            stream_coaching(
+                report=_report(),
+                provider=provider,
+                playback_engine=playback,
+            )
+        )
+    except ValueError as exc:
+        assert "invalid playback result duration_sec" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid playback duration")
+
+
 def test_parse_coaching_text_extracts_json_from_wrapped_stream_text() -> None:
     wrapped = (
         "Coach intro...\n"

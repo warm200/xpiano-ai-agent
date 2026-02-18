@@ -303,20 +303,31 @@ async def stream_coaching(
 
     def _playback_result_payload(result: Any) -> dict[str, Any]:
         if isinstance(result, dict):
-            return dict(result)
-        payload: dict[str, Any] = {}
+            payload: dict[str, Any] = dict(result)
+            if "status" in payload:
+                payload["status"] = str(payload["status"])
+            duration_sec = payload.get("duration_sec")
+            if duration_sec is not None:
+                duration_value = float(duration_sec)
+                if not math.isfinite(duration_value) or duration_value < 0:
+                    raise ValueError("invalid playback result duration_sec")
+                payload["duration_sec"] = duration_value
+            if not payload:
+                payload["status"] = "ok"
+            return payload
+        out_payload: dict[str, Any] = {}
         status = getattr(result, "status", None)
         if status is not None:
-            payload["status"] = str(status)
+            out_payload["status"] = str(status)
         duration_sec = getattr(result, "duration_sec", None)
         if duration_sec is not None:
             duration_value = float(duration_sec)
             if not math.isfinite(duration_value) or duration_value < 0:
                 raise ValueError("invalid playback result duration_sec")
-            payload["duration_sec"] = duration_value
-        if not payload:
-            payload["status"] = "ok"
-        return payload
+            out_payload["duration_sec"] = duration_value
+        if not out_payload:
+            out_payload["status"] = "ok"
+        return out_payload
 
     def _on_tool_use(event: dict[str, Any]) -> dict[str, Any]:
         payload = event.get("input", {})
