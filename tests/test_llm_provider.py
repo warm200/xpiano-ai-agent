@@ -99,3 +99,30 @@ def test_claude_provider_stream_normalizes_events(monkeypatch: pytest.MonkeyPatc
     assert events[1]["type"] == "tool_use"
     sent_tools = fake_messages.stream_kwargs["tools"]
     assert sent_tools[0]["input_schema"]["type"] == "object"
+
+
+def test_claude_provider_stream_falls_back_to_generate(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            return SimpleNamespace(content=[SimpleNamespace(text='{"goal":"fallback"}')])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise RuntimeError("stream failed")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream("hello"):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    events = asyncio.run(_collect(provider))
+    assert events == [{"type": "text_delta", "text": '{"goal":"fallback"}'}]

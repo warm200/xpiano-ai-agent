@@ -80,26 +80,30 @@ class ClaudeProvider(LLMProvider):
 
     async def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
         stream_tools = _normalize_tools(tools)
-        with self.client.messages.stream(
-            model=self.model,
-            max_tokens=self.max_tokens,
-            temperature=self.temperature,
-            messages=[{"role": "user", "content": prompt}],
-            tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
-        ) as stream:
-            for event in stream:
-                event_type = getattr(event, "type", "")
-                if event_type == "text":
-                    yield {"type": "text_delta", "text": str(getattr(event, "text", ""))}
-                elif event_type == "content_block_stop":
-                    block = getattr(event, "content_block", None)
-                    if getattr(block, "type", None) == "tool_use":
-                        input_payload = dict(getattr(block, "input", {}) or {})
-                        yield {
-                            "type": "tool_use",
-                            "name": getattr(block, "name", None),
-                            "input": input_payload,
-                        }
+        try:
+            with self.client.messages.stream(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=[{"role": "user", "content": prompt}],
+                tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
+            ) as stream:
+                for event in stream:
+                    event_type = getattr(event, "type", "")
+                    if event_type == "text":
+                        yield {"type": "text_delta", "text": str(getattr(event, "text", ""))}
+                    elif event_type == "content_block_stop":
+                        block = getattr(event, "content_block", None)
+                        if getattr(block, "type", None) == "tool_use":
+                            input_payload = dict(getattr(block, "input", {}) or {})
+                            yield {
+                                "type": "tool_use",
+                                "name": getattr(block, "name", None),
+                                "input": input_payload,
+                            }
+        except Exception:
+            # Degrade gracefully to non-streamed text.
+            yield {"type": "text_delta", "text": self.generate(prompt)}
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:
