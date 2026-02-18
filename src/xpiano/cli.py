@@ -57,10 +57,11 @@ def _parse_measures(value: str) -> tuple[int, int]:
 
 
 def _parse_attempts(value: str) -> int:
-    if value.startswith("latest-"):
-        raw = value.split("-", maxsplit=1)[1]
+    normalized = value.strip()
+    if normalized.startswith("latest-"):
+        raw = normalized.split("-", maxsplit=1)[1].strip()
     else:
-        raw = value
+        raw = normalized
     try:
         parsed = int(raw)
     except ValueError as exc:
@@ -80,9 +81,10 @@ def _default_segment_bounds(meta: dict) -> tuple[int, int]:
 
 
 def _require_segment(value: str) -> str:
-    if not value.strip():
+    cleaned = value.strip()
+    if not cleaned:
         raise typer.BadParameter("segment must be non-empty")
-    return value
+    return cleaned
 
 
 def _require_optional_segment(value: str | None) -> str | None:
@@ -92,9 +94,10 @@ def _require_optional_segment(value: str | None) -> str | None:
 
 
 def _require_song(value: str) -> str:
-    if not value.strip():
+    cleaned = value.strip()
+    if not cleaned:
         raise typer.BadParameter("song must be non-empty")
-    return value
+    return cleaned
 
 
 def _segment_meta(meta: dict, segment_id: str) -> dict:

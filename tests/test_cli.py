@@ -39,6 +39,28 @@ def test_setup_and_list_command(xpiano_home: Path) -> None:
     assert "twinkle" in result.stdout
 
 
+def test_setup_trims_song_and_segment_identifiers(xpiano_home: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            " twinkle ",
+            "--segment",
+            " verse1 ",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    segment = next(item for item in meta["segments"] if item["segment_id"] == "verse1")
+    assert segment["segment_id"] == "verse1"
+
+
 def test_setup_accepts_measure_range(xpiano_home: Path) -> None:
     result = runner.invoke(
         app,
@@ -506,6 +528,18 @@ def test_import_command_accepts_segment(sample_midi_path: Path, xpiano_home: Pat
     assert result.exit_code == 0
     meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["segments"][0]["segment_id"] == "verse1"
+
+
+def test_import_command_trims_song_and_segment(sample_midi_path: Path, xpiano_home: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", " twinkle ", "--segment", " verse1 "],
+    )
+    assert result.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["song_id"] == "twinkle"
     assert meta["segments"][0]["segment_id"] == "verse1"
 
 
@@ -1153,6 +1187,23 @@ def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
 
     monkeypatch.setattr("xpiano.cli.build_history", _fake_build_history)
     result = runner.invoke(app, ["compare", "--song", "twinkle", "--attempts", "latest-3"])
+    assert result.exit_code == 0
+    assert captured["attempts"] == 3
+
+
+def test_compare_accepts_latest_attempt_selector_with_spaces(monkeypatch) -> None:
+    rows = [
+        {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
+        {"filename": "b.json", "segment_id": "verse1", "match_rate": 0.7, "missing": 3, "extra": 1, "matched": 7, "ref_notes": 10},
+    ]
+    captured: dict[str, object] = {}
+
+    def _fake_build_history(**kwargs):
+        captured.update(kwargs)
+        return rows
+
+    monkeypatch.setattr("xpiano.cli.build_history", _fake_build_history)
+    result = runner.invoke(app, ["compare", "--song", "twinkle", "--attempts", " latest-3 "])
     assert result.exit_code == 0
     assert captured["attempts"] == 3
 
