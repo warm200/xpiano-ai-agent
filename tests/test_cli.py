@@ -105,6 +105,35 @@ def test_record_and_report_commands(
     assert "match_rate=" in report_result.stdout
 
 
+def test_report_command_with_segment_filter(xpiano_home: Path) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    def _write(name: str, segment: str, match_rate: float) -> None:
+        payload = {
+            "version": "0.1",
+            "song_id": "twinkle",
+            "segment_id": segment,
+            "status": "ok",
+            "inputs": {"reference_mid": "ref.mid", "attempt_mid": "attempt.mid", "meta": {}},
+            "summary": {
+                "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 9, "missing": 1, "extra": 0},
+                "match_rate": match_rate,
+                "top_problems": [],
+            },
+            "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+            "events": [],
+        }
+        (reports_dir / name).write_text(json.dumps(payload), encoding="utf-8")
+
+    _write("20260101_120000.json", "verse1", 0.55)
+    _write("20260101_120100.json", "verse2", 0.80)
+
+    result = runner.invoke(app, ["report", "--song", "twinkle", "--segment", "verse2"])
+    assert result.exit_code == 0
+    assert "match_rate=0.80" in result.stdout
+
+
 def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
     result = runner.invoke(
         app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])

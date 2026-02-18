@@ -255,10 +255,23 @@ def record_ref(
 @app.command("report")
 def report(
     song: str = typer.Option(..., "--song"),
+    segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     config.ensure_config(data_dir=data_dir)
-    report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+    if segment is None:
+        report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+    else:
+        rows = build_history(
+            song_id=song,
+            segment_id=segment,
+            attempts=1,
+            data_dir=data_dir,
+        )
+        if not rows:
+            console.print("No report found for segment.")
+            return
+        report_path = Path(rows[-1]["path"])
     with report_path.open("r", encoding="utf-8") as fp:
         payload = json.load(fp)
     console.print(f"Report: {report_path}")
