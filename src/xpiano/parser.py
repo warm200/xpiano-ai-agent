@@ -13,6 +13,8 @@ def _to_hand(pitch: int, split_pitch: int) -> Literal["L", "R", "U"]:
 
 
 def midi_to_notes(midi_path: str | Path, hand_split: int = 60) -> list[NoteEvent]:
+    if hand_split < 0 or hand_split > 127:
+        raise ValueError("hand_split must be between 0 and 127")
     midi = pretty_midi.PrettyMIDI(str(midi_path))
     notes: list[NoteEvent] = []
     for instrument in midi.instruments:

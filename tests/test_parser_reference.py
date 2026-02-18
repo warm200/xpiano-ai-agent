@@ -14,6 +14,15 @@ def test_midi_to_notes_parses_note_events(sample_midi_path: Path) -> None:
     assert notes[1].pitch_name == "E4"
 
 
+def test_midi_to_notes_rejects_out_of_range_hand_split(sample_midi_path: Path) -> None:
+    try:
+        _ = parser.midi_to_notes(sample_midi_path, hand_split=128)
+    except ValueError as exc:
+        assert "hand_split must be between 0 and 127" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range hand_split")
+
+
 def test_import_reference_creates_meta_and_notes(xpiano_home: Path, sample_midi_path: Path) -> None:
     target = reference.import_reference(sample_midi_path, song_id="twinkle")
     assert target.exists()
