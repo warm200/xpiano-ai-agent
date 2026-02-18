@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -21,6 +22,7 @@ from xpiano.wait_mode import run_wait_mode
 
 app = typer.Typer(help="XPiano CLI")
 console = Console()
+_ATTEMPTS_PATTERN = re.compile(r"^(?:latest\s*-\s*)?(\d+)$", re.IGNORECASE)
 
 
 def _parse_time_signature(time_sig: str) -> tuple[int, int]:
@@ -58,14 +60,10 @@ def _parse_measures(value: str) -> tuple[int, int]:
 
 def _parse_attempts(value: str) -> int:
     normalized = value.strip()
-    if normalized.startswith("latest-"):
-        raw = normalized.split("-", maxsplit=1)[1].strip()
-    else:
-        raw = normalized
-    try:
-        parsed = int(raw)
-    except ValueError as exc:
-        raise typer.BadParameter("attempts must be N or latest-N") from exc
+    match = _ATTEMPTS_PATTERN.match(normalized)
+    if match is None:
+        raise typer.BadParameter("attempts must be N or latest-N")
+    parsed = int(match.group(1))
     if parsed <= 0:
         raise typer.BadParameter("attempts must be > 0")
     return parsed
