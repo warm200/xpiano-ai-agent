@@ -1484,6 +1484,14 @@ def test_playback_command_rejects_non_positive_bpm() -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_rejects_out_of_range_bpm() -> None:
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference", "--bpm", "241"],
+    )
+    assert result.exit_code != 0
+
+
 def test_wait_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.run_wait_mode",
@@ -1510,6 +1518,14 @@ def test_wait_command_rejects_non_positive_bpm() -> None:
     result = runner.invoke(
         app,
         ["wait", "--song", "twinkle", "--segment", "verse1", "--bpm", "0"],
+    )
+    assert result.exit_code != 0
+
+
+def test_wait_command_rejects_out_of_range_bpm() -> None:
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1", "--bpm", "241"],
     )
     assert result.exit_code != 0
 

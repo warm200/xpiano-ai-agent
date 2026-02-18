@@ -140,8 +140,8 @@ def play(
     data_dir: str | Path | None = None,
     output_port: str | None = None,
 ) -> PlayResult:
-    if bpm is not None and bpm <= 0:
-        raise ValueError("invalid bpm: must be > 0")
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise ValueError("invalid bpm: must be in range 20..240")
     if source == "comparison" and delay_between < 0:
         raise ValueError("delay_between must be >= 0")
     meta = reference.load_meta(song_id=song_id, data_dir=data_dir)

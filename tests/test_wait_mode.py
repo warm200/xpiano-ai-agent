@@ -156,6 +156,31 @@ def test_run_wait_mode_rejects_non_positive_bpm_override(xpiano_home: Path) -> N
         raise AssertionError("expected ValueError for non-positive bpm override")
 
 
+def test_run_wait_mode_rejects_out_of_range_bpm_override(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    notes = [
+        _note(60, 0.0, "C4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            bpm=241,
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "invalid bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range bpm override")
+
+
 def test_run_wait_mode_rejects_invalid_segment_range(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

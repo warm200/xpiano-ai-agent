@@ -289,6 +289,16 @@ def test_play_rejects_non_positive_bpm_override() -> None:
         )
 
 
+def test_play_rejects_out_of_range_bpm_override() -> None:
+    with pytest.raises(ValueError, match="invalid bpm"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            bpm=241,
+        )
+
+
 def test_play_rejects_negative_comparison_delay() -> None:
     with pytest.raises(ValueError, match="delay_between must be >= 0"):
         play(

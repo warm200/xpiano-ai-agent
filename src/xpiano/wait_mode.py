@@ -126,6 +126,8 @@ def run_wait_mode(
     data_dir: str | Path | None = None,
     event_stream: Iterable[set[int]] | None = None,
 ) -> WaitModeResult:
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise ValueError("invalid bpm: must be in range 20..240")
     meta = load_meta(song_id=song_id, data_dir=data_dir)
     if bpm is not None:
         meta = dict(meta)

@@ -597,8 +597,8 @@ def playback(
 ) -> None:
     song = _require_song(song)
     segment = _require_segment(segment)
-    if bpm is not None and bpm <= 0:
-        raise typer.BadParameter("bpm must be > 0")
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise typer.BadParameter("bpm must be in range 20..240")
     try:
         result = playback_play(
             source=mode,
@@ -626,8 +626,8 @@ def wait(
 ) -> None:
     song = _require_song(song)
     segment = _require_segment(segment)
-    if bpm is not None and bpm <= 0:
-        raise typer.BadParameter("bpm must be > 0")
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise typer.BadParameter("bpm must be in range 20..240")
     try:
         result = run_wait_mode(
             song_id=song,
