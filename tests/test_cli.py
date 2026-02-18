@@ -2423,6 +2423,51 @@ def test_compare_with_playback_recovers_stale_absolute_attempt_paths(
     assert "Playback compare:" in result.stdout
 
 
+def test_compare_with_playback_skips_when_attempt_path_is_directory(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prev_report = tmp_path / "prev_report.json"
+    curr_report = tmp_path / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    bad_dir = tmp_path / "attempts_dir"
+    bad_dir.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {"inputs": {"attempt_mid": str(bad_dir)}},
+    )
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback", "--delay-between", "0"],
+    )
+    assert result.exit_code == 0
+    assert "Playback skipped: attempt MIDI file not found." in result.stdout
+
+
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
     rows = [
         {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},

@@ -269,22 +269,22 @@ def _resolve_attempt_path(
 ) -> Path:
     raw = Path(attempt_path.strip()).expanduser()
     if raw.is_absolute():
-        if raw.exists():
+        if raw.is_file():
             return raw
         by_report_name = (report_path.parent / raw.name).resolve()
-        if by_report_name.exists():
+        if by_report_name.is_file():
             return by_report_name
         attempts_sibling = (report_path.parent.parent /
                             "attempts" / raw.name).resolve()
-        if attempts_sibling.exists():
+        if attempts_sibling.is_file():
             return attempts_sibling
         return raw
     report_relative = (report_path.parent / raw).resolve()
-    if report_relative.exists():
+    if report_relative.is_file():
         return report_relative
     if data_dir is not None:
         data_relative = (data_dir / raw).resolve()
-        if data_relative.exists():
+        if data_relative.is_file():
             return data_relative
     return raw.resolve()
 
@@ -298,21 +298,21 @@ def _resolve_report_path_from_row(
     if raw_path:
         candidate = Path(str(raw_path))
         if candidate.is_absolute():
-            if candidate.exists():
+            if candidate.is_file():
                 return candidate
         else:
             cwd_candidate = candidate.resolve()
-            if cwd_candidate.exists():
+            if cwd_candidate.is_file():
                 return cwd_candidate
             if data_dir is not None:
                 data_candidate = (data_dir / candidate).resolve()
-                if data_candidate.exists():
+                if data_candidate.is_file():
                     return data_candidate
     filename = str(row.get("filename", "")).strip()
     if not filename:
         return None
     candidate = reference.songs_dir(data_dir=data_dir) / song_id / "reports" / filename
-    if candidate.exists():
+    if candidate.is_file():
         return candidate
     # Graceful fallback for renamed timestamp files: choose latest report in same segment.
     segment_id = str(row.get("segment_id", "")).strip()
@@ -327,7 +327,7 @@ def _resolve_report_path_from_row(
             latest_path = str(history_rows[-1].get("path", "")).strip()
             if latest_path:
                 latest_candidate = Path(latest_path)
-                if latest_candidate.exists():
+                if latest_candidate.is_file():
                     return latest_candidate
     return None
 
@@ -1000,7 +1000,7 @@ def compare(
         report_path=curr_report_file,
         data_dir=data_dir,
     )
-    if not prev_attempt.exists() or not curr_attempt.exists():
+    if not prev_attempt.is_file() or not curr_attempt.is_file():
         console.print("Playback skipped: attempt MIDI file not found.")
         return
 
