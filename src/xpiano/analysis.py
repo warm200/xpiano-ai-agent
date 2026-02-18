@@ -220,10 +220,18 @@ def analyze(
     match_tol_ms = float(meta.get("tolerance", {}).get("match_tol_ms", 80))
     chord_window_ms = float(
         meta.get("tolerance", {}).get("chord_window_ms", 50))
+    short_ratio = float(meta.get("tolerance", {}).get("duration_short_ratio", 0.6))
+    long_ratio = float(meta.get("tolerance", {}).get("duration_long_ratio", 1.5))
     if match_tol_ms < 0:
         raise ValueError("invalid match_tol_ms: must be >= 0")
     if chord_window_ms < 0:
         raise ValueError("invalid chord_window_ms: must be >= 0")
+    if short_ratio <= 0:
+        raise ValueError("invalid duration_short_ratio: must be > 0")
+    if long_ratio <= 0:
+        raise ValueError("invalid duration_long_ratio: must be > 0")
+    if short_ratio >= long_ratio:
+        raise ValueError("invalid duration ratios: duration_short_ratio must be < duration_long_ratio")
     valid_matches = _select_valid_matches(
         ref_notes=ref_notes,
         attempt_notes=attempt_notes,

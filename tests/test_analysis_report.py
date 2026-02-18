@@ -271,6 +271,31 @@ def test_analysis_rejects_negative_chord_window_ms(tmp_path: Path) -> None:
         _ = analyze(str(ref_mid), str(attempt_mid), meta)
 
 
+def test_analysis_rejects_non_positive_duration_short_ratio(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["tolerance"]["duration_short_ratio"] = 0
+    with pytest.raises(ValueError, match="invalid duration_short_ratio"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
+def test_analysis_rejects_inverted_duration_ratios(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["tolerance"]["duration_short_ratio"] = 1.6
+    meta["tolerance"]["duration_long_ratio"] = 1.5
+    with pytest.raises(ValueError, match="invalid duration ratios"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
 def test_analysis_rejects_invalid_segment_range(tmp_path: Path) -> None:
     ref_mid = tmp_path / "ref.mid"
     attempt_mid = tmp_path / "attempt.mid"
