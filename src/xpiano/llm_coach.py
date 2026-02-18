@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 from xpiano.llm_provider import LLMProvider
 from xpiano.reference import song_dir

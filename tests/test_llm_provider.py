@@ -86,7 +86,8 @@ def test_claude_provider_stream_normalizes_events(monkeypatch: pytest.MonkeyPatc
         out: list[dict] = []
         async for event in provider.stream(
             "hello",
-            tools=[{"name": "playback_control", "description": "x", "parameters": {"type": "object"}}],
+            tools=[{"name": "playback_control", "description": "x",
+                    "parameters": {"type": "object"}}],
         ):
             out.append(event)
         return out

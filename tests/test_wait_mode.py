@@ -69,3 +69,30 @@ def test_run_wait_mode_with_event_stream(xpiano_home: Path) -> None:
     assert result.total_steps == 2
     assert result.completed == 2
     assert result.errors == 0
+
+
+def test_run_wait_mode_filters_by_segment(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    meta = _meta()
+    meta["segments"] = [
+        {"segment_id": "verse1", "start_measure": 1, "end_measure": 1},
+        {"segment_id": "verse2", "start_measure": 2, "end_measure": 2},
+    ]
+    save_meta(song_id="twinkle", meta=meta)
+    notes = [
+        _note(60, 0.0, "C4"),   # measure 1 @ 120bpm
+        _note(62, 2.0, "D4"),   # measure 2
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse2",
+        data_dir=xpiano_home,
+        event_stream=[{62}],
+    )
+    assert result.total_steps == 1
+    assert result.completed == 1

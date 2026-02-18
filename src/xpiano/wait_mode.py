@@ -45,7 +45,6 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
     if not notes:
         return []
     sorted_notes = sorted(notes, key=lambda note: (note.start_sec, note.pitch))
-    start_measure = int(meta.get("segments", [{}])[0].get("start_measure", 1))
 
     grouped: list[list[NoteEvent]] = []
     for note in sorted_notes:
@@ -62,7 +61,7 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
     for group in grouped:
         start_sec = group[0].start_sec
         total_beats = start_sec / beat_sec
-        measure = start_measure + int(total_beats // beats_per_measure)
+        measure = 1 + int(total_beats // beats_per_measure)
         beat = 1.0 + (total_beats % beats_per_measure)
         pitches = {note.pitch for note in group}
         names = sorted({note.pitch_name for note in group})
@@ -95,11 +94,18 @@ def run_wait_mode(
     if bpm is not None:
         meta = dict(meta)
         meta["bpm"] = bpm
-    _ = _segment_start_measure(meta, segment_id=segment_id)
+    segment_start = _segment_start_measure(meta, segment_id=segment_id)
+    segment_end = segment_start
+    for segment in meta.get("segments", []):
+        if segment.get("segment_id") == segment_id:
+            segment_end = int(segment.get("end_measure", segment_start))
+            break
 
     notes = [_dict_to_note(note) for note in load_reference_notes(
         song_id=song_id, data_dir=data_dir)]
-    steps = build_pitch_sequence(notes=notes, meta=meta)
+    all_steps = build_pitch_sequence(notes=notes, meta=meta)
+    steps = [step for step in all_steps if segment_start <=
+             step.measure <= segment_end]
     if not steps:
         return WaitModeResult(total_steps=0, completed=0, errors=0)
 

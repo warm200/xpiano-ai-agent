@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 from typing import Any, AsyncIterator
 
 from xpiano.llm_coach import (build_coaching_prompt, fallback_output,

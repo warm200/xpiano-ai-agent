@@ -37,10 +37,12 @@ def test_build_history_filters_and_limits(xpiano_home: Path) -> None:
     _write_report(reports / "20260101_120100.json", 0.70, 3, 1, "verse1")
     _write_report(reports / "20260101_120200.json", 0.80, 2, 1, "verse2")
 
-    rows = build_history(song_id="twinkle", segment_id="verse1", attempts=5, data_dir=xpiano_home)
+    rows = build_history(song_id="twinkle", segment_id="verse1",
+                         attempts=5, data_dir=xpiano_home)
     assert len(rows) == 2
     assert rows[-1]["match_rate"] == 0.7
 
-    limited = build_history(song_id="twinkle", segment_id=None, attempts=2, data_dir=xpiano_home)
+    limited = build_history(
+        song_id="twinkle", segment_id=None, attempts=2, data_dir=xpiano_home)
     assert len(limited) == 2
     assert limited[0]["filename"] == "20260101_120100.json"

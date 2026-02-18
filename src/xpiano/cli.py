@@ -221,7 +221,8 @@ def record_ref(
     segment_cfg = _segment_meta(meta, segment_id=segment)
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     bpm = float(meta["bpm"])
-    measures = int(segment_cfg["end_measure"]) - int(segment_cfg["start_measure"]) + 1
+    measures = int(segment_cfg["end_measure"]) - \
+        int(segment_cfg["start_measure"]) + 1
     count_in_measures = int(segment_cfg.get("count_in_measures", 1))
     duration_sec = measures * beats_per_measure * (60.0 / bpm)
     count_in_beats = count_in_measures * beats_per_measure
@@ -416,9 +417,12 @@ def compare(
     delta_match = curr["match_rate"] - prev["match_rate"]
     delta_missing = curr["missing"] - prev["missing"]
     delta_extra = curr["extra"] - prev["extra"]
-    console.print(f"match_rate: {prev['match_rate']:.2f} -> {curr['match_rate']:.2f} ({delta_match:+.2f})")
-    console.print(f"missing: {prev['missing']} -> {curr['missing']} ({delta_missing:+d})")
-    console.print(f"extra: {prev['extra']} -> {curr['extra']} ({delta_extra:+d})")
+    console.print(
+        f"match_rate: {prev['match_rate']:.2f} -> {curr['match_rate']:.2f} ({delta_match:+.2f})")
+    console.print(
+        f"missing: {prev['missing']} -> {curr['missing']} ({delta_missing:+d})")
+    console.print(
+        f"extra: {prev['extra']} -> {curr['extra']} ({delta_extra:+d})")
 
 
 if __name__ == "__main__":

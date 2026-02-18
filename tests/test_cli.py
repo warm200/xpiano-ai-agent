@@ -129,7 +129,8 @@ def test_record_full_tier_saves_coaching(
     )
     monkeypatch.setattr(
         "xpiano.cli.save_coaching",
-        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+        lambda coaching, song_id, data_dir=None: Path(
+            "/tmp/fake_coaching.json"),
     )
 
     record_result = runner.invoke(
