@@ -55,8 +55,8 @@ def record(
 ) -> mido.MidiFile:
     if duration_sec <= 0:
         raise ValueError("duration_sec must be > 0")
-    if bpm <= 0:
-        raise ValueError("bpm must be > 0")
+    if bpm < 20 or bpm > 240:
+        raise ValueError("bpm must be in range 20..240")
     if beats_per_measure <= 0:
         raise ValueError("beats_per_measure must be > 0")
     if beats_per_measure > 12:
