@@ -557,3 +557,25 @@ def test_history_and_compare_commands(monkeypatch) -> None:
     assert compare_result.exit_code == 0
     assert "match_rate: 0.50 -> 0.80 (+0.30)" in compare_result.stdout
     assert "trend: improved" in compare_result.stdout
+
+
+def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
+    rows = [
+        {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
+        {"filename": "b.json", "segment_id": "verse1", "match_rate": 0.7, "missing": 3, "extra": 1, "matched": 7, "ref_notes": 10},
+    ]
+    captured: dict[str, object] = {}
+
+    def _fake_build_history(**kwargs):
+        captured.update(kwargs)
+        return rows
+
+    monkeypatch.setattr("xpiano.cli.build_history", _fake_build_history)
+    result = runner.invoke(app, ["compare", "--song", "twinkle", "--attempts", "latest-3"])
+    assert result.exit_code == 0
+    assert captured["attempts"] == 3
+
+
+def test_history_rejects_invalid_attempt_selector() -> None:
+    result = runner.invoke(app, ["history", "--song", "twinkle", "--attempts", "latest-0"])
+    assert result.exit_code != 0

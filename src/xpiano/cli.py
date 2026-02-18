@@ -54,6 +54,20 @@ def _parse_measures(value: str) -> tuple[int, int]:
     return start, end
 
 
+def _parse_attempts(value: str) -> int:
+    if value.startswith("latest-"):
+        raw = value.split("-", maxsplit=1)[1]
+    else:
+        raw = value
+    try:
+        parsed = int(raw)
+    except ValueError as exc:
+        raise typer.BadParameter("attempts must be N or latest-N") from exc
+    if parsed <= 0:
+        raise typer.BadParameter("attempts must be > 0")
+    return parsed
+
+
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
@@ -467,13 +481,14 @@ def wait(
 def history(
     song: str = typer.Option(..., "--song"),
     segment: str | None = typer.Option(None, "--segment"),
-    attempts: int = typer.Option(5, "--attempts"),
+    attempts: str = typer.Option("5", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    attempt_count = _parse_attempts(attempts)
     rows = build_history(
         song_id=song,
         segment_id=segment,
-        attempts=attempts,
+        attempts=attempt_count,
         data_dir=data_dir,
     )
     if not rows:
@@ -500,13 +515,14 @@ def history(
 def compare(
     song: str = typer.Option(..., "--song"),
     segment: str | None = typer.Option(None, "--segment"),
-    attempts: int = typer.Option(2, "--attempts"),
+    attempts: str = typer.Option("2", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    attempt_count = _parse_attempts(attempts)
     rows = build_history(
         song_id=song,
         segment_id=segment,
-        attempts=max(2, attempts),
+        attempts=max(2, attempt_count),
         data_dir=data_dir,
     )
     if len(rows) < 2:
