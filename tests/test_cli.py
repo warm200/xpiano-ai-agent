@@ -284,6 +284,24 @@ def test_setup_rejects_empty_segment() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_empty_song() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,
@@ -346,6 +364,14 @@ def test_report_command_rejects_empty_segment() -> None:
     result = runner.invoke(
         app,
         ["report", "--song", "twinkle", "--segment", ""],
+    )
+    assert result.exit_code != 0
+
+
+def test_report_command_rejects_empty_song() -> None:
+    result = runner.invoke(
+        app,
+        ["report", "--song", ""],
     )
     assert result.exit_code != 0
 

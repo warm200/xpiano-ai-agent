@@ -89,6 +89,12 @@ def _require_optional_segment(value: str | None) -> str | None:
     return _require_segment(value)
 
 
+def _require_song(value: str) -> str:
+    if not value.strip():
+        raise typer.BadParameter("song must be non-empty")
+    return value
+
+
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
@@ -137,6 +143,7 @@ def setup(
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_segment(segment)
     if bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
@@ -205,6 +212,7 @@ def import_song(
     segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
     path = reference.import_reference(
@@ -257,6 +265,7 @@ def record(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
     try:
@@ -352,6 +361,7 @@ def record_ref(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_segment(segment)
     config.ensure_config(data_dir=data_dir)
     try:
@@ -373,6 +383,7 @@ def report(
     segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
     if segment is None:
@@ -408,6 +419,7 @@ def coach(
     stream: bool = typer.Option(False, "--stream"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_optional_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
     if segment is None:
@@ -519,6 +531,7 @@ def playback(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
@@ -547,6 +560,7 @@ def wait(
     input_port: str | None = typer.Option(None, "--input-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
@@ -572,6 +586,7 @@ def history(
     attempts: str = typer.Option("5", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_optional_segment(segment)
     attempt_count = _parse_attempts(attempts)
     rows = build_history(
@@ -607,6 +622,7 @@ def compare(
     attempts: str = typer.Option("2", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    song = _require_song(song)
     segment = _require_optional_segment(segment)
     attempt_count = _parse_attempts(attempts)
     rows = build_history(
