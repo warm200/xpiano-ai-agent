@@ -489,6 +489,24 @@ def test_setup_rejects_segment_with_path_separator() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_segment_dotdot() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "..",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_setup_rejects_empty_song() -> None:
     result = runner.invoke(
         app,
@@ -514,6 +532,24 @@ def test_setup_rejects_song_with_path_separator() -> None:
             "setup",
             "--song",
             "foo/bar",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
+def test_setup_rejects_song_dotdot() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "..",
             "--segment",
             "verse1",
             "--bpm",

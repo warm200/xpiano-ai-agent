@@ -82,6 +82,8 @@ def _require_segment(value: str) -> str:
     cleaned = value.strip()
     if not cleaned:
         raise typer.BadParameter("segment must be non-empty")
+    if cleaned in {".", ".."}:
+        raise typer.BadParameter("segment must not be '.' or '..'")
     if "/" in cleaned or "\\" in cleaned:
         raise typer.BadParameter("segment must not contain path separators")
     return cleaned
@@ -97,6 +99,8 @@ def _require_song(value: str) -> str:
     cleaned = value.strip()
     if not cleaned:
         raise typer.BadParameter("song must be non-empty")
+    if cleaned in {".", ".."}:
+        raise typer.BadParameter("song must not be '.' or '..'")
     if "/" in cleaned or "\\" in cleaned:
         raise typer.BadParameter("song must not contain path separators")
     return cleaned
