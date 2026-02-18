@@ -100,6 +100,31 @@ def _validate_chord_window_ms(chord_window_ms: float) -> None:
         raise ValueError("invalid chord_window_ms: must be >= 0")
 
 
+def _validate_tolerance(
+    match_tol_ms: float,
+    short_ratio: float,
+    long_ratio: float,
+    timing_grades: dict[str, int],
+) -> None:
+    if match_tol_ms < 0:
+        raise ValueError("invalid match_tol_ms: must be >= 0")
+    if short_ratio <= 0:
+        raise ValueError("invalid duration_short_ratio: must be > 0")
+    if long_ratio <= 0:
+        raise ValueError("invalid duration_long_ratio: must be > 0")
+    if short_ratio >= long_ratio:
+        raise ValueError("invalid duration ratios: duration_short_ratio must be < duration_long_ratio")
+    great_ms = int(timing_grades["great_ms"])
+    good_ms = int(timing_grades["good_ms"])
+    rushed_dragged_ms = int(timing_grades["rushed_dragged_ms"])
+    if great_ms <= 0 or good_ms <= 0 or rushed_dragged_ms <= 0:
+        raise ValueError("invalid timing_grades: values must be > 0")
+    if not (great_ms <= good_ms <= rushed_dragged_ms):
+        raise ValueError(
+            "invalid timing_grades: expected great_ms <= good_ms <= rushed_dragged_ms"
+        )
+
+
 def generate_events(
     ref: list[NoteEvent],
     attempt: list[NoteEvent],
@@ -117,6 +142,12 @@ def generate_events(
     long_ratio = float(tolerance.get("duration_long_ratio", 1.5))
     chord_window_ms = float(tolerance.get("chord_window_ms", 50))
     _validate_chord_window_ms(chord_window_ms)
+    _validate_tolerance(
+        match_tol_ms=match_tol_ms,
+        short_ratio=short_ratio,
+        long_ratio=long_ratio,
+        timing_grades=timing_grades,
+    )
 
     beats_per_measure, bpm = _validate_timing_meta(meta)
     start_measure = _segment_start_measure(meta, segment_id=segment_id)
