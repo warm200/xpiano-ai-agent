@@ -199,6 +199,70 @@ def test_run_wait_mode_event_stream_short_input_counts_timeouts(xpiano_home: Pat
     assert timeouts == [["D4"], ["E4"]]
 
 
+def test_run_wait_mode_realtime_allows_partial_chord_collection(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 1, "end_measure": 1}]
+    save_meta(song_id="twinkle", meta=meta)
+    notes = [
+        _note(60, 0.0, "C4"),
+        _note(64, 0.01, "E4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+
+    class _Msg:
+        def __init__(self, note: int):
+            self.type = "note_on"
+            self.velocity = 90
+            self.note = note
+
+    class _FakeInPort:
+        def __init__(self):
+            self._calls = 0
+
+        def iter_pending(self):
+            self._calls += 1
+            if self._calls == 1:
+                return [_Msg(60)]
+            if self._calls == 2:
+                return [_Msg(64)]
+            return []
+
+    class _FakeInputCtx:
+        def __enter__(self):
+            return _FakeInPort()
+
+        def __exit__(self, exc_type, exc, tb):
+            _ = exc_type, exc, tb
+            return None
+
+    now = {"value": 0.0}
+
+    def _fake_monotonic() -> float:
+        now["value"] += 0.1
+        return now["value"]
+
+    monkeypatch.setattr("xpiano.wait_mode.mido.open_input", lambda port: _FakeInputCtx())
+    monkeypatch.setattr("xpiano.wait_mode.time.monotonic", _fake_monotonic)
+    monkeypatch.setattr("xpiano.wait_mode.time.sleep", lambda _: None)
+
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+    )
+    assert result.total_steps == 1
+    assert result.completed == 1
+    assert result.errors == 0
+
+
 def test_run_wait_mode_filters_by_segment(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

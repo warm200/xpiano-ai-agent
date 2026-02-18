@@ -191,7 +191,7 @@ def run_wait_mode(
                     if on_match is not None:
                         on_match(step)
                     break
-                if collected and not step.pitches.issubset(collected):
+                if collected and not collected.issubset(step.pitches):
                     errors += 1
                     if on_wrong is not None:
                         on_wrong(step, set(collected))
