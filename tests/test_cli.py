@@ -1971,6 +1971,135 @@ def test_compare_with_playback_replays_before_and_latest(
     assert "Playback compare:" in result.stdout
 
 
+def test_compare_with_playback_resolves_relative_attempt_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = tmp_path / "reports"
+    attempts_dir = reports_dir / "attempts"
+    attempts_dir.mkdir(parents=True, exist_ok=True)
+    prev_report = reports_dir / "prev_report.json"
+    curr_report = reports_dir / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    (attempts_dir / "prev.mid").write_bytes(b"prev")
+    (attempts_dir / "curr.mid").write_bytes(b"curr")
+
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {
+            "inputs": {
+                "attempt_mid": (
+                    "attempts/prev.mid"
+                    if "prev_report" in str(path)
+                    else "attempts/curr.mid"
+                )
+            }
+        },
+    )
+    monkeypatch.setattr("xpiano.cli.mido.MidiFile", lambda path: f"midi::{Path(path).name}")
+    monkeypatch.setattr("xpiano.cli.time.sleep", lambda seconds: None)
+    play_calls: list[dict] = []
+
+    def _fake_play_midi(**kwargs):
+        play_calls.append(kwargs)
+        return PlayResult(status="played", duration_sec=1.0)
+
+    monkeypatch.setattr("xpiano.cli.midi_io.play_midi", _fake_play_midi)
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback", "--delay-between", "0"],
+    )
+    assert result.exit_code == 0
+    assert len(play_calls) == 2
+    assert str(play_calls[0]["midi"]).endswith("prev.mid")
+    assert str(play_calls[1]["midi"]).endswith("curr.mid")
+
+
+def test_compare_with_playback_skips_when_no_device_on_latest(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prev_report = tmp_path / "prev_report.json"
+    curr_report = tmp_path / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    prev_attempt = tmp_path / "prev.mid"
+    curr_attempt = tmp_path / "curr.mid"
+    prev_attempt.write_bytes(b"prev")
+    curr_attempt.write_bytes(b"curr")
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {
+            "inputs": {
+                "attempt_mid": str(prev_attempt if "prev_report" in str(path) else curr_attempt)
+            }
+        },
+    )
+    monkeypatch.setattr("xpiano.cli.mido.MidiFile", lambda path: f"midi::{Path(path).name}")
+    monkeypatch.setattr("xpiano.cli.time.sleep", lambda seconds: None)
+    statuses = [PlayResult(status="played", duration_sec=1.0), PlayResult(status="no_device", duration_sec=0.0)]
+
+    def _fake_play_midi(**kwargs):
+        _ = kwargs
+        return statuses.pop(0)
+
+    monkeypatch.setattr("xpiano.cli.midi_io.play_midi", _fake_play_midi)
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback", "--delay-between", "0"],
+    )
+    assert result.exit_code == 0
+    assert "Playback skipped: no MIDI output device." in result.stdout
+    assert "Playback compare:" not in result.stdout
+
+
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
     rows = [
         {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},

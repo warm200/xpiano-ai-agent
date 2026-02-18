@@ -238,6 +238,24 @@ def _play_attempt_file(
     return result.status, result.duration_sec
 
 
+def _resolve_attempt_path(
+    attempt_path: str,
+    report_path: Path,
+    data_dir: Path | None,
+) -> Path:
+    raw = Path(attempt_path.strip())
+    if raw.is_absolute():
+        return raw
+    report_relative = (report_path.parent / raw).resolve()
+    if report_relative.exists():
+        return report_relative
+    if data_dir is not None:
+        data_relative = (data_dir / raw).resolve()
+        if data_relative.exists():
+            return data_relative
+    return raw.resolve()
+
+
 @app.command("devices")
 def devices() -> None:
     entries = midi_io.list_devices()
@@ -842,10 +860,12 @@ def compare(
     if not prev_report_path or not curr_report_path:
         console.print("Playback skipped: report history does not include file paths.")
         return
+    prev_report_file = Path(str(prev_report_path))
+    curr_report_file = Path(str(curr_report_path))
     try:
-        prev_report = load_report(Path(str(prev_report_path)))
-        curr_report = load_report(Path(str(curr_report_path)))
-    except ValueError as exc:
+        prev_report = load_report(prev_report_file)
+        curr_report = load_report(curr_report_file)
+    except (FileNotFoundError, ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     prev_attempt_path = str(prev_report.get("inputs", {}).get("attempt_mid", "")).strip()
@@ -854,8 +874,16 @@ def compare(
         console.print("Playback skipped: missing attempt path in report inputs.")
         return
 
-    prev_attempt = Path(prev_attempt_path)
-    curr_attempt = Path(curr_attempt_path)
+    prev_attempt = _resolve_attempt_path(
+        attempt_path=prev_attempt_path,
+        report_path=prev_report_file,
+        data_dir=data_dir,
+    )
+    curr_attempt = _resolve_attempt_path(
+        attempt_path=curr_attempt_path,
+        report_path=curr_report_file,
+        data_dir=data_dir,
+    )
     if not prev_attempt.exists() or not curr_attempt.exists():
         console.print("Playback skipped: attempt MIDI file not found.")
         return
@@ -878,6 +906,9 @@ def compare(
             output_port=output_port,
             bpm=bpm,
         )
+        if latest_status == "no_device":
+            console.print("Playback skipped: no MIDI output device.")
+            return
     except (OSError, ValueError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
