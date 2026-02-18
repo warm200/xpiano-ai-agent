@@ -41,13 +41,13 @@ def _parse_measures(value: str) -> tuple[int, int]:
     if "-" in value:
         try:
             start_raw, end_raw = value.split("-", maxsplit=1)
-            start = int(start_raw)
-            end = int(end_raw)
+            start = int(start_raw.strip())
+            end = int(end_raw.strip())
         except ValueError as exc:
             raise typer.BadParameter("measures must be N or START-END (e.g. 4 or 1-4)") from exc
     else:
         try:
-            end = int(value)
+            end = int(value.strip())
         except ValueError as exc:
             raise typer.BadParameter("measures must be N or START-END (e.g. 4 or 1-4)") from exc
         start = 1
