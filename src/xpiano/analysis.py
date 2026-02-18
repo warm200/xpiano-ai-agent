@@ -220,6 +220,10 @@ def analyze(
     match_tol_ms = float(meta.get("tolerance", {}).get("match_tol_ms", 80))
     chord_window_ms = float(
         meta.get("tolerance", {}).get("chord_window_ms", 50))
+    if match_tol_ms < 0:
+        raise ValueError("invalid match_tol_ms: must be >= 0")
+    if chord_window_ms < 0:
+        raise ValueError("invalid chord_window_ms: must be >= 0")
     valid_matches = _select_valid_matches(
         ref_notes=ref_notes,
         attempt_notes=attempt_notes,

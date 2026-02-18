@@ -235,6 +235,30 @@ def test_analysis_rejects_non_positive_beats_per_measure(tmp_path: Path) -> None
         _ = analyze(str(ref_mid), str(attempt_mid), meta)
 
 
+def test_analysis_rejects_negative_match_tolerance_ms(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["tolerance"]["match_tol_ms"] = -1
+    with pytest.raises(ValueError, match="invalid match_tol_ms"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
+def test_analysis_rejects_negative_chord_window_ms(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["tolerance"]["chord_window_ms"] = -1
+    with pytest.raises(ValueError, match="invalid chord_window_ms"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
 def test_analysis_rejects_invalid_segment_range(tmp_path: Path) -> None:
     ref_mid = tmp_path / "ref.mid"
     attempt_mid = tmp_path / "attempt.mid"
