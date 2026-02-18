@@ -2344,6 +2344,23 @@ def test_resolve_report_path_from_row_falls_back_to_latest_segment_report(
     assert resolved == latest
 
 
+def test_resolve_report_path_from_row_does_not_create_missing_song_dir(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    song_dir = xpiano_home / "songs" / "missing_song"
+    if song_dir.exists():
+        raise AssertionError("test expects missing_song dir not to exist")
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: [])
+    resolved = cli_module._resolve_report_path_from_row(
+        row={"filename": "missing.json", "segment_id": "verse1"},
+        song_id="missing_song",
+        data_dir=xpiano_home,
+    )
+    assert resolved is None
+    assert not song_dir.exists()
+
+
 def test_compare_with_playback_recovers_stale_absolute_attempt_paths(
     xpiano_home: Path,
     monkeypatch,

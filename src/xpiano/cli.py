@@ -311,7 +311,7 @@ def _resolve_report_path_from_row(
     filename = str(row.get("filename", "")).strip()
     if not filename:
         return None
-    candidate = reference.song_dir(song_id=song_id, data_dir=data_dir) / "reports" / filename
+    candidate = reference.songs_dir(data_dir=data_dir) / song_id / "reports" / filename
     if candidate.exists():
         return candidate
     # Graceful fallback for renamed timestamp files: choose latest report in same segment.
