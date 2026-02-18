@@ -198,3 +198,20 @@ def test_play_rejects_invalid_highlight_pitch(xpiano_home: Path) -> None:
             highlight_pitches=["H9"],
             data_dir=xpiano_home,
         )
+
+
+def test_play_rejects_invalid_segment_range(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    meta = _meta()
+    meta["segments"][0]["start_measure"] = 4
+    meta["segments"][0]["end_measure"] = 2
+    save_meta(song_id="twinkle", meta=meta)
+    with pytest.raises(ValueError, match="invalid segment range"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+        )

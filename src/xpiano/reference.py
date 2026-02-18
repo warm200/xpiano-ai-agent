@@ -238,6 +238,10 @@ def record_reference(
     beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
     measures = int(segment["end_measure"]) - int(segment["start_measure"]) + 1
+    if measures <= 0:
+        raise ValueError(
+            f"invalid segment range: {segment['start_measure']}-{segment['end_measure']}"
+        )
     count_in_measures = int(segment.get("count_in_measures", 1))
     if count_in_measures <= 0:
         raise ValueError("segment count_in_measures must be > 0")

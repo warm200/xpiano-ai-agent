@@ -408,6 +408,24 @@ def test_record_too_low_skips_piano_roll_diff(
     assert "SHOULD_NOT_PRINT" not in record_result.stdout
 
 
+def test_record_rejects_invalid_segment_range(
+    sample_midi_path: Path,
+    xpiano_home: Path,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["segments"][0]["start_measure"] = 4
+    meta["segments"][0]["end_measure"] = 2
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code != 0
+
+
 def test_coach_command_with_mocked_provider(
     xpiano_home: Path,
     monkeypatch,

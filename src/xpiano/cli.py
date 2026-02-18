@@ -72,6 +72,12 @@ def _parse_attempts(value: str) -> int:
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
+            start_measure = int(segment.get("start_measure", 1))
+            end_measure = int(segment.get("end_measure", start_measure))
+            if end_measure < start_measure:
+                raise typer.BadParameter(
+                    f"invalid segment range for {segment_id}: {start_measure}-{end_measure}"
+                )
             return segment
     raise typer.BadParameter(f"segment not found: {segment_id}")
 

@@ -34,6 +34,10 @@ def _parse_measure(value: str) -> int:
 def _resolve_measures(segment: dict, measures: str | None) -> MeasureRange:
     default_start = int(segment["start_measure"])
     default_end = int(segment["end_measure"])
+    if default_end < default_start:
+        raise ValueError(
+            f"invalid segment range: {default_start}-{default_end}"
+        )
     if not measures:
         return MeasureRange(start=default_start, end=default_end)
     if "-" not in measures:
