@@ -96,3 +96,23 @@ def test_run_wait_mode_filters_by_segment(xpiano_home: Path) -> None:
     )
     assert result.total_steps == 1
     assert result.completed == 1
+
+
+def test_run_wait_mode_rejects_invalid_segment_range(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 3, "end_measure": 2}]
+    save_meta(song_id="twinkle", meta=meta)
+    (song_dir / "reference_notes.json").write_text("[]", encoding="utf-8")
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "invalid segment range" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid segment range")

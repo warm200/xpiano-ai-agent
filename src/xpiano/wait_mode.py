@@ -27,10 +27,14 @@ class WaitModeResult:
     errors: int
 
 
-def _segment_start_measure(meta: dict, segment_id: str) -> int:
+def _segment_bounds(meta: dict, segment_id: str) -> tuple[int, int]:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
-            return int(segment.get("start_measure", 1))
+            start = int(segment.get("start_measure", 1))
+            end = int(segment.get("end_measure", start))
+            if end < start:
+                raise ValueError(f"invalid segment range: {start}-{end}")
+            return start, end
     raise ValueError(f"segment not found: {segment_id}")
 
 
@@ -94,12 +98,7 @@ def run_wait_mode(
     if bpm is not None:
         meta = dict(meta)
         meta["bpm"] = bpm
-    segment_start = _segment_start_measure(meta, segment_id=segment_id)
-    segment_end = segment_start
-    for segment in meta.get("segments", []):
-        if segment.get("segment_id") == segment_id:
-            segment_end = int(segment.get("end_measure", segment_start))
-            break
+    segment_start, segment_end = _segment_bounds(meta, segment_id=segment_id)
 
     notes = [_dict_to_note(note) for note in load_reference_notes(
         song_id=song_id, data_dir=data_dir)]

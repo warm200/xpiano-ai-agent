@@ -1271,6 +1271,25 @@ def test_wait_command_rejects_non_positive_bpm() -> None:
     assert result.exit_code != 0
 
 
+def test_wait_command_rejects_invalid_segment_range(xpiano_home: Path) -> None:
+    setup = runner.invoke(
+        app,
+        ["setup", "--song", "twinkle", "--segment", "verse1", "--bpm", "80", "--time-sig", "4/4", "--measures", "1-2"],
+    )
+    assert setup.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["segments"][0]["start_measure"] = 3
+    meta["segments"][0]["end_measure"] = 2
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code != 0
+
+
 def test_history_and_compare_commands(monkeypatch) -> None:
     rows = [
         {
