@@ -126,6 +126,8 @@ def setup(
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if not segment.strip():
+        raise typer.BadParameter("segment must be non-empty")
     if bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
     if split_pitch < 0 or split_pitch > 127:
@@ -193,6 +195,8 @@ def import_song(
     segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if segment is not None and not segment.strip():
+        raise typer.BadParameter("segment must be non-empty")
     config.ensure_config(data_dir=data_dir)
     path = reference.import_reference(
         midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)

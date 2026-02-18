@@ -266,6 +266,24 @@ def test_setup_rejects_non_positive_bpm() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_empty_segment() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,
@@ -306,6 +324,14 @@ def test_import_command_accepts_segment(sample_midi_path: Path, xpiano_home: Pat
     meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["segments"][0]["segment_id"] == "verse1"
+
+
+def test_import_command_rejects_empty_segment(sample_midi_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "twinkle", "--segment", ""],
+    )
+    assert result.exit_code != 0
 
 
 def _recorded_midi() -> mido.MidiFile:
