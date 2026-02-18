@@ -199,6 +199,45 @@ def test_run_wait_mode_event_stream_short_input_counts_timeouts(xpiano_home: Pat
     assert timeouts == [["D4"], ["E4"]]
 
 
+def test_run_wait_mode_event_stream_is_consumed_lazily(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse1", "start_measure": 1, "end_measure": 1}]
+    save_meta(song_id="twinkle", meta=meta)
+    notes = [
+        _note(60, 0.0, "C4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+
+    class _OneShotStream:
+        def __init__(self):
+            self.calls = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            self.calls += 1
+            if self.calls == 1:
+                return {60}
+            raise RuntimeError("event stream should not be pre-consumed")
+
+    stream = _OneShotStream()
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+        event_stream=stream,
+    )
+    assert result.total_steps == 1
+    assert result.completed == 1
+    assert result.errors == 0
+
+
 def test_run_wait_mode_realtime_allows_partial_chord_collection(
     xpiano_home: Path,
     monkeypatch,

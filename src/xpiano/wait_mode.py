@@ -154,23 +154,25 @@ def run_wait_mode(
     if event_stream is not None:
         completed = 0
         errors = 0
-        incoming = list(event_stream)
-        for idx, step in enumerate(steps):
+        incoming_iter = iter(event_stream)
+        for step in steps:
             if on_step is not None:
                 on_step(step)
-            if idx >= len(incoming):
+            try:
+                incoming_step = next(incoming_iter)
+            except StopIteration:
                 errors += 1
                 if on_timeout is not None:
                     on_timeout(step)
                 continue
-            if incoming[idx] == step.pitches:
+            if incoming_step == step.pitches:
                 completed += 1
                 if on_match is not None:
                     on_match(step)
             else:
                 errors += 1
                 if on_wrong is not None:
-                    on_wrong(step, set(incoming[idx]))
+                    on_wrong(step, set(incoming_step))
         return WaitModeResult(total_steps=len(steps), completed=completed, errors=errors)
 
     beat_timeout_sec = 2.0 * (60.0 / float(meta["bpm"]))
