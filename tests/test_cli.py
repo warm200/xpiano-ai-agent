@@ -185,6 +185,26 @@ def test_setup_rejects_non_positive_count_in() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_out_of_range_split_pitch() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--split-pitch",
+            "128",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,
