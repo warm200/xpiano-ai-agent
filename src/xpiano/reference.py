@@ -173,3 +173,30 @@ def save_attempt(song_id: str, midi: mido.MidiFile, data_dir: str | Path | None 
     output = attempts_dir / f"{ts}.mid"
     midi.save(str(output))
     return output
+
+
+def reference_midi_path(song_id: str, data_dir: str | Path | None = None) -> Path:
+    path = song_dir(song_id, data_dir=data_dir) / "reference.mid"
+    if not path.exists():
+        raise FileNotFoundError(f"reference.mid missing for song: {song_id}")
+    return path
+
+
+def latest_attempt_path(song_id: str, data_dir: str | Path | None = None) -> Path:
+    attempts_dir = song_dir(song_id, data_dir=data_dir) / "attempts"
+    if not attempts_dir.exists():
+        raise FileNotFoundError(f"no attempts found for song: {song_id}")
+    mids = sorted(attempts_dir.glob("*.mid"))
+    if not mids:
+        raise FileNotFoundError(f"no attempts found for song: {song_id}")
+    return mids[-1]
+
+
+def latest_report_path(song_id: str, data_dir: str | Path | None = None) -> Path:
+    reports_dir = song_dir(song_id, data_dir=data_dir) / "reports"
+    if not reports_dir.exists():
+        raise FileNotFoundError(f"no reports found for song: {song_id}")
+    reports = sorted(reports_dir.glob("*.json"))
+    if not reports:
+        raise FileNotFoundError(f"no reports found for song: {song_id}")
+    return reports[-1]

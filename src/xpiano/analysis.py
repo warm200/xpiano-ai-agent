@@ -1,0 +1,174 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from statistics import median
+
+from xpiano.alignment import Aligner, DTWAligner
+from xpiano.events import generate_events
+from xpiano.models import AlignmentResult, AnalysisEvent, NoteEvent
+from xpiano.parser import midi_to_notes
+
+
+@dataclass
+class AnalysisResult:
+    ref_notes: list[NoteEvent]
+    attempt_notes: list[NoteEvent]
+    events: list[AnalysisEvent]
+    metrics: dict
+    match_rate: float
+    quality_tier: str
+    alignment: AlignmentResult
+    matched: int
+
+
+def _dedup_ref_count(notes: list[NoteEvent], chord_window_ms: float) -> int:
+    if not notes:
+        return 0
+    sorted_notes = sorted(notes, key=lambda n: (n.start_sec, n.pitch))
+    kept = 0
+    last_seen: dict[int, float] = {}
+    win_sec = chord_window_ms / 1000.0
+    for note in sorted_notes:
+        last_time = last_seen.get(note.pitch)
+        if last_time is None or (note.start_sec - last_time) > win_sec:
+            kept += 1
+            last_seen[note.pitch] = note.start_sec
+    return kept
+
+
+def _select_valid_matches(
+    ref_notes: list[NoteEvent],
+    attempt_notes: list[NoteEvent],
+    path: list[tuple[int, int]],
+    match_tol_ms: float,
+) -> list[tuple[int, int]]:
+    valid: list[tuple[int, int]] = []
+    seen_ref: set[int] = set()
+    seen_attempt: set[int] = set()
+    for ref_idx, attempt_idx in path:
+        if ref_idx in seen_ref or attempt_idx in seen_attempt:
+            continue
+        if ref_idx >= len(ref_notes) or attempt_idx >= len(attempt_notes):
+            continue
+        ref_note = ref_notes[ref_idx]
+        attempt_note = attempt_notes[attempt_idx]
+        if ref_note.pitch != attempt_note.pitch:
+            continue
+        if abs((attempt_note.start_sec - ref_note.start_sec) * 1000.0) > match_tol_ms:
+            continue
+        seen_ref.add(ref_idx)
+        seen_attempt.add(attempt_idx)
+        valid.append((ref_idx, attempt_idx))
+    return valid
+
+
+def _quality_tier(match_rate: float) -> str:
+    if match_rate >= 0.50:
+        return "full"
+    if match_rate >= 0.20:
+        return "simplified"
+    return "too_low"
+
+
+def _safe_median(values: list[float]) -> float:
+    return float(median(values)) if values else 0.0
+
+
+def _safe_p90(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    sorted_vals = sorted(values)
+    idx = min(len(sorted_vals) - 1, int(round(0.9 * (len(sorted_vals) - 1))))
+    return float(sorted_vals[idx])
+
+
+def _build_metrics(ref_notes: list[NoteEvent], attempt_notes: list[NoteEvent], matches: list[tuple[int, int]]) -> dict:
+    deltas_ms: list[float] = []
+    duration_ratios: list[float] = []
+
+    for ref_idx, attempt_idx in matches:
+        ref_note = ref_notes[ref_idx]
+        attempt_note = attempt_notes[attempt_idx]
+        deltas_ms.append(
+            (attempt_note.start_sec - ref_note.start_sec) * 1000.0)
+        if ref_note.dur_sec > 0:
+            duration_ratios.append(attempt_note.dur_sec / ref_note.dur_sec)
+
+    left_vel = [n.velocity for n in attempt_notes if n.hand == "L"]
+    right_vel = [n.velocity for n in attempt_notes if n.hand == "R"]
+    left_mean = float(sum(left_vel) / len(left_vel)) if left_vel else None
+    right_mean = float(sum(right_vel) / len(right_vel)) if right_vel else None
+    imbalance = None
+    if left_mean is not None and right_mean is not None:
+        top = max(left_mean, right_mean)
+        imbalance = 0.0 if top == 0 else abs(left_mean - right_mean) / top
+
+    short_ratio = 0.0
+    long_ratio = 0.0
+    if duration_ratios:
+        short_ratio = len([r for r in duration_ratios if r <
+                          0.6]) / len(duration_ratios)
+        long_ratio = len([r for r in duration_ratios if r >
+                         1.5]) / len(duration_ratios)
+
+    abs_deltas = [abs(v) for v in deltas_ms]
+    return {
+        "timing": {
+            "onset_error_ms_median": _safe_median(deltas_ms),
+            "onset_error_ms_p90_abs": _safe_p90(abs_deltas),
+            "onset_error_ms_mean_abs": float(sum(abs_deltas) / len(abs_deltas)) if abs_deltas else 0.0,
+        },
+        "duration": {
+            "duration_ratio_median": _safe_median(duration_ratios),
+            "duration_too_short_ratio": short_ratio,
+            "duration_too_long_ratio": long_ratio,
+        },
+        "dynamics": {
+            "left_mean_velocity": left_mean,
+            "right_mean_velocity": right_mean,
+            "velocity_imbalance": imbalance,
+        },
+    }
+
+
+def analyze(
+    ref_midi: str,
+    attempt_midi: str,
+    meta: dict,
+    aligner: Aligner | None = None,
+) -> AnalysisResult:
+    hand_split = int(meta.get("hand_split", {}).get("split_pitch", 60))
+    ref_notes = midi_to_notes(ref_midi, hand_split=hand_split)
+    attempt_notes = midi_to_notes(attempt_midi, hand_split=hand_split)
+
+    engine = aligner or DTWAligner()
+    alignment = engine.align_offline(ref_notes, attempt_notes)
+
+    match_tol_ms = float(meta.get("tolerance", {}).get("match_tol_ms", 80))
+    chord_window_ms = float(
+        meta.get("tolerance", {}).get("chord_window_ms", 50))
+    valid_matches = _select_valid_matches(
+        ref_notes=ref_notes,
+        attempt_notes=attempt_notes,
+        path=alignment.path,
+        match_tol_ms=match_tol_ms,
+    )
+
+    ref_count = _dedup_ref_count(ref_notes, chord_window_ms=chord_window_ms)
+    matched = len(valid_matches)
+    match_rate = 0.0 if ref_count == 0 else matched / ref_count
+    events = generate_events(
+        ref=ref_notes, attempt=attempt_notes, alignment=alignment, meta=meta)
+    metrics = _build_metrics(
+        ref_notes=ref_notes, attempt_notes=attempt_notes, matches=valid_matches)
+
+    return AnalysisResult(
+        ref_notes=ref_notes,
+        attempt_notes=attempt_notes,
+        events=events,
+        metrics=metrics,
+        match_rate=match_rate,
+        quality_tier=_quality_tier(match_rate),
+        alignment=alignment,
+        matched=matched,
+    )
