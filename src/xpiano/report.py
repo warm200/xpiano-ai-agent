@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import Counter
 from dataclasses import asdict
 from datetime import datetime
@@ -25,9 +26,12 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
     if isinstance(value, bool):
         return default
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return default
+    if not math.isfinite(parsed):
+        return default
+    return parsed
 
 
 def _top_problems(result: AnalysisResult, limit: int = 5) -> list[str]:

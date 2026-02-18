@@ -94,3 +94,25 @@ def test_build_history_skips_invalid_json_report(xpiano_home: Path) -> None:
 
     rows = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
     assert rows == []
+
+
+def test_build_history_recomputes_non_finite_match_rate_from_counts(
+    xpiano_home: Path,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    legacy_payload = {
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "summary": {
+            "counts": {"ref_notes": 10, "matched": 5, "missing": 5, "extra": 0},
+            "match_rate": "nan",
+        },
+    }
+    (reports / "20260101_120000.json").write_text(
+        json.dumps(legacy_payload), encoding="utf-8"
+    )
+
+    rows = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
+    assert len(rows) == 1
+    assert rows[0]["match_rate"] == 0.5
