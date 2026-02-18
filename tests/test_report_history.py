@@ -55,3 +55,42 @@ def test_build_history_rejects_non_positive_attempts(xpiano_home: Path) -> None:
         assert "attempts must be > 0" in str(exc)
     else:
         raise AssertionError("expected ValueError for non-positive attempts")
+
+
+def test_build_history_reads_legacy_report_without_schema(xpiano_home: Path) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    legacy_payload = {
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "summary": {
+            "counts": {
+                "ref_notes": "10",
+                "matched": "8",
+                "missing": "2",
+                "extra": "1",
+            },
+            "match_rate": "0.8",
+        },
+    }
+    (reports / "20260101_120000.json").write_text(
+        json.dumps(legacy_payload), encoding="utf-8"
+    )
+
+    rows = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
+    assert len(rows) == 1
+    assert rows[0]["segment_id"] == "verse1"
+    assert rows[0]["match_rate"] == 0.8
+    assert rows[0]["missing"] == 2
+    assert rows[0]["extra"] == 1
+    assert rows[0]["matched"] == 8
+    assert rows[0]["ref_notes"] == 10
+
+
+def test_build_history_skips_invalid_json_report(xpiano_home: Path) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "20260101_120000.json").write_text("{invalid", encoding="utf-8")
+
+    rows = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
+    assert rows == []

@@ -12,6 +12,24 @@ from xpiano.reference import song_dir
 from xpiano.schemas import validate
 
 
+def _coerce_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _top_problems(result: AnalysisResult, limit: int = 5) -> list[str]:
     by_type_measure = Counter((event.type, event.measure)
                               for event in result.events)
@@ -129,21 +147,32 @@ def build_history(
         try:
             report = load_report(path)
         except Exception:
-            continue
+            try:
+                with path.open("r", encoding="utf-8") as fp:
+                    report = json.load(fp)
+            except Exception:
+                continue
+            if not isinstance(report, dict):
+                continue
         if segment_id and report.get("segment_id") != segment_id:
             continue
         summary = report.get("summary", {})
         counts = summary.get("counts", {})
+        matched = _coerce_int(counts.get("matched", 0))
+        ref_notes = _coerce_int(counts.get("ref_notes", 0))
+        match_rate = _coerce_float(summary.get("match_rate", 0.0))
+        if match_rate == 0.0 and matched > 0 and ref_notes > 0:
+            match_rate = matched / ref_notes
         rows.append(
             {
                 "path": str(path),
                 "filename": path.name,
                 "segment_id": report.get("segment_id"),
-                "match_rate": float(summary.get("match_rate", 0.0)),
-                "missing": int(counts.get("missing", 0)),
-                "extra": int(counts.get("extra", 0)),
-                "matched": int(counts.get("matched", 0)),
-                "ref_notes": int(counts.get("ref_notes", 0)),
+                "match_rate": match_rate,
+                "missing": _coerce_int(counts.get("missing", 0)),
+                "extra": _coerce_int(counts.get("extra", 0)),
+                "matched": matched,
+                "ref_notes": ref_notes,
             }
         )
     rows.sort(key=lambda item: item["filename"])
