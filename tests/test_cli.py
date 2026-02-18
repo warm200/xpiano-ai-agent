@@ -554,6 +554,14 @@ def test_playback_command_invalid_measures_returns_error(monkeypatch) -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_rejects_invalid_mode() -> None:
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "invalid"],
+    )
+    assert result.exit_code != 0
+
+
 def test_wait_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.run_wait_mode",

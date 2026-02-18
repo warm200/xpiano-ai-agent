@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from typing import Literal
 
 import typer
 from rich.console import Console
@@ -446,7 +447,7 @@ def coach(
 def playback(
     song: str = typer.Option(..., "--song"),
     segment: str = typer.Option("default", "--segment"),
-    mode: str = typer.Option("reference", "--mode"),
+    mode: Literal["reference", "attempt", "comparison"] = typer.Option("reference", "--mode"),
     measures: str | None = typer.Option(None, "--measures"),
     bpm: float | None = typer.Option(None, "--bpm"),
     highlight: list[str] | None = typer.Option(None, "--highlight"),
