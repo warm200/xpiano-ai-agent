@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import time
 from pathlib import Path
@@ -156,18 +157,28 @@ def _resolve_max_retries(cfg: dict) -> int:
 
 
 def _coerce_float(value: Any, default: float = 0.0) -> float:
+    if isinstance(value, bool):
+        return default
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return default
+    if not math.isfinite(parsed):
+        return default
+    return parsed
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:
     if isinstance(value, bool):
         return default
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return default
+        if not value.is_integer():
+            return default
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 

@@ -2096,6 +2096,32 @@ def test_compare_handles_malformed_history_rows(monkeypatch) -> None:
     assert "extra: 0 -> 1 (+1)" in result.stdout
 
 
+def test_compare_handles_non_finite_history_rows(monkeypatch) -> None:
+    rows = [
+        {
+            "segment_id": "verse1",
+            "filename": "prev.json",
+            "match_rate": float("nan"),
+            "missing": float("inf"),
+            "extra": float("-inf"),
+        },
+        {
+            "segment_id": "verse1",
+            "filename": "curr.json",
+            "match_rate": 0.75,
+            "missing": 2,
+            "extra": 1,
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Compare: prev.json -> curr.json" in result.stdout
+    assert "match_rate: 0.00 -> 0.75 (+0.75)" in result.stdout
+    assert "missing: 0 -> 2 (+2)" in result.stdout
+    assert "extra: 0 -> 1 (+1)" in result.stdout
+
+
 def test_compare_with_playback_replays_before_and_latest(
     tmp_path: Path,
     monkeypatch,
