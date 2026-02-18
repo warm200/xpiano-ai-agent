@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import mido
@@ -145,6 +146,21 @@ def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path)
     assert len(songs) == 1
     assert songs[0].song_id == "twinkle"
     assert songs[0].has_reference is True
+
+
+def test_save_attempt_avoids_filename_collision(xpiano_home: Path, monkeypatch) -> None:
+    class _FixedDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 1, 1, 12, 0, 0)
+
+    monkeypatch.setattr("xpiano.reference.datetime", _FixedDateTime)
+    midi = mido.MidiFile(ticks_per_beat=480)
+    path1 = reference.save_attempt(song_id="twinkle", midi=midi, data_dir=xpiano_home)
+    path2 = reference.save_attempt(song_id="twinkle", midi=midi, data_dir=xpiano_home)
+    assert path1 != path2
+    assert path1.exists()
+    assert path2.exists()
 
 
 def test_record_reference_uses_meta_segment(

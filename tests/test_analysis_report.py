@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import mido
@@ -110,6 +111,37 @@ def test_report_build_and_save(tmp_path: Path, xpiano_home: Path) -> None:
     assert validate("report", report) == []
     report_path = save_report(report=report, song_id="demo")
     assert report_path.exists()
+
+
+def test_save_report_avoids_filename_collision(xpiano_home: Path, monkeypatch) -> None:
+    class _FixedDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 1, 1, 12, 0, 0)
+
+    report = {
+        "version": "0.1",
+        "song_id": "demo",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "attempt.mid", "meta": _meta()},
+        "summary": {
+            "counts": {"ref_notes": 1, "attempt_notes": 1, "matched": 1, "missing": 0, "extra": 0},
+            "match_rate": 1.0,
+            "top_problems": [],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+        "examples": {"missing_first_10": [], "extra_first_10": []},
+    }
+    assert validate("report", report) == []
+
+    monkeypatch.setattr("xpiano.report.datetime", _FixedDateTime)
+    path1 = save_report(report=report, song_id="demo", data_dir=xpiano_home)
+    path2 = save_report(report=report, song_id="demo", data_dir=xpiano_home)
+    assert path1 != path2
+    assert path1.exists()
+    assert path2.exists()
 
 
 def test_report_marks_simplified_as_low_quality(tmp_path: Path) -> None:

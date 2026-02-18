@@ -243,6 +243,10 @@ def save_coaching(
     out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = out_dir / f"{ts}.json"
+    suffix_idx = 1
+    while path.exists():
+        path = out_dir / f"{ts}_{suffix_idx:02d}.json"
+        suffix_idx += 1
     with path.open("w", encoding="utf-8") as fp:
         json.dump(coaching, fp, ensure_ascii=True, indent=2)
     return path

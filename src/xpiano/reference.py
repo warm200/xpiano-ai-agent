@@ -254,6 +254,10 @@ def save_attempt(song_id: str, midi: mido.MidiFile, data_dir: str | Path | None 
     attempts_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     output = attempts_dir / f"{ts}.mid"
+    suffix_idx = 1
+    while output.exists():
+        output = attempts_dir / f"{ts}_{suffix_idx:02d}.mid"
+        suffix_idx += 1
     midi.save(str(output))
     return output
 

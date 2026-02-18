@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from typing import Any, AsyncIterator
 
 from xpiano.llm_coach import (build_coaching_prompt, fallback_output,
@@ -166,6 +167,21 @@ def test_save_coaching_writes_file(xpiano_home) -> None:
     output = fallback_output(_report())
     path = save_coaching(output, song_id="twinkle")
     assert path.exists()
+
+
+def test_save_coaching_avoids_filename_collision(xpiano_home, monkeypatch) -> None:
+    class _FixedDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 1, 1, 12, 0, 0)
+
+    monkeypatch.setattr("xpiano.llm_coach.datetime", _FixedDateTime)
+    output = fallback_output(_report())
+    path1 = save_coaching(output, song_id="twinkle", data_dir=xpiano_home)
+    path2 = save_coaching(output, song_id="twinkle", data_dir=xpiano_home)
+    assert path1 != path2
+    assert path1.exists()
+    assert path2.exists()
 
 
 def test_stream_coaching_calls_playback_engine() -> None:

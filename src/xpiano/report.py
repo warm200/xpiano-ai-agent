@@ -90,6 +90,10 @@ def save_report(report: dict[str, Any], song_id: str, data_dir: str | Path | Non
     reports_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = reports_dir / f"{ts}.json"
+    suffix_idx = 1
+    while path.exists():
+        path = reports_dir / f"{ts}_{suffix_idx:02d}.json"
+        suffix_idx += 1
     with path.open("w", encoding="utf-8") as fp:
         json.dump(report, fp, ensure_ascii=True, indent=2)
     return path
