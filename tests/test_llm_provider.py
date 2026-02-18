@@ -13,6 +13,21 @@ def test_create_provider_rejects_unknown() -> None:
         create_provider({"llm": {"provider": "unknown"}})
 
 
+def test_create_provider_rejects_non_integer_max_tool_rounds() -> None:
+    with pytest.raises(ValueError, match="invalid llm.max_tool_rounds"):
+        create_provider({"llm": {"provider": "claude", "max_tool_rounds": "abc"}})
+
+
+def test_create_provider_rejects_non_positive_max_tool_rounds() -> None:
+    with pytest.raises(ValueError, match="invalid llm.max_tool_rounds"):
+        create_provider({"llm": {"provider": "claude", "max_tool_rounds": 0}})
+
+
+def test_create_provider_rejects_boolean_max_tool_rounds() -> None:
+    with pytest.raises(ValueError, match="invalid llm.max_tool_rounds"):
+        create_provider({"llm": {"provider": "claude", "max_tool_rounds": True}})
+
+
 def test_claude_provider_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(ValueError):

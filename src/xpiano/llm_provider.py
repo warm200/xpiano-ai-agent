@@ -74,11 +74,11 @@ class ClaudeProvider(LLMProvider):
         temperature: float = 0.2,
         max_tool_rounds: int = 8,
     ):
+        if max_tool_rounds <= 0:
+            raise ValueError("max_tool_rounds must be > 0")
         resolved_key = api_key or os.getenv(api_key_env)
         if not resolved_key:
             raise ValueError(f"missing Claude API key; set {api_key_env}")
-        if max_tool_rounds <= 0:
-            raise ValueError("max_tool_rounds must be > 0")
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
@@ -218,8 +218,19 @@ def create_provider(config_data: dict[str, Any]) -> LLMProvider:
     provider_name = llm_cfg.get("provider", "claude")
     if provider_name != "claude":
         raise ValueError(f"unsupported llm provider: {provider_name}")
+    raw_max_tool_rounds = llm_cfg.get("max_tool_rounds", 8)
+    if isinstance(raw_max_tool_rounds, bool):
+        raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
+    try:
+        max_tool_rounds = int(raw_max_tool_rounds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "invalid llm.max_tool_rounds: must be integer > 0"
+        ) from exc
+    if max_tool_rounds <= 0:
+        raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
     return ClaudeProvider(
         model=llm_cfg.get("model", "claude-sonnet-4-5-20250929"),
         api_key_env=llm_cfg.get("api_key_env", "ANTHROPIC_API_KEY"),
-        max_tool_rounds=int(llm_cfg.get("max_tool_rounds", 8)),
+        max_tool_rounds=max_tool_rounds,
     )
