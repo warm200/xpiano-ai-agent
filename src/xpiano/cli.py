@@ -876,8 +876,26 @@ def compare(
     if len(rows) < 2:
         console.print("Need at least 2 reports to compare.")
         return
-    prev = rows[-2]
-    curr = rows[-1]
+    if segment is None:
+        curr = rows[-1]
+        curr_segment = curr.get("segment_id")
+        prev = next(
+            (
+                row
+                for row in reversed(rows[:-1])
+                if row.get("segment_id") == curr_segment
+            ),
+            None,
+        )
+        if prev is None:
+            console.print(
+                "Need at least 2 reports in the same segment to compare. "
+                "Use --segment or increase --attempts."
+            )
+            return
+    else:
+        prev = rows[-2]
+        curr = rows[-1]
     console.print(f"Compare: {prev['filename']} -> {curr['filename']}")
     delta_match = curr["match_rate"] - prev["match_rate"]
     delta_missing = curr["missing"] - prev["missing"]

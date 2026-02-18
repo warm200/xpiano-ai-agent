@@ -1922,6 +1922,69 @@ def test_history_and_compare_commands(monkeypatch) -> None:
     assert "trend: improved" in compare_result.stdout
 
 
+def test_compare_without_segment_uses_latest_same_segment(monkeypatch) -> None:
+    rows = [
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": "verse2",
+            "match_rate": 0.9,
+            "missing": 1,
+            "extra": 0,
+            "matched": 9,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "c.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Compare: a.json -> c.json" in result.stdout
+
+
+def test_compare_without_segment_requires_same_segment_pair(monkeypatch) -> None:
+    rows = [
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": "verse2",
+            "match_rate": 0.9,
+            "missing": 1,
+            "extra": 0,
+            "matched": 9,
+            "ref_notes": 10,
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Need at least 2 reports in the same segment to compare" in result.stdout
+
+
 def test_compare_with_playback_replays_before_and_latest(
     tmp_path: Path,
     monkeypatch,
