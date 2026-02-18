@@ -1006,7 +1006,10 @@ def compare(
     try:
         prev_report = load_report(prev_report_file)
         curr_report = load_report(curr_report_file)
-    except (FileNotFoundError, ValueError, OSError) as exc:
+    except FileNotFoundError:
+        console.print("Playback skipped: resolved report file not found.")
+        return
+    except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     prev_attempt_path = str(prev_report.get("inputs", {}).get("attempt_mid", "")).strip()
