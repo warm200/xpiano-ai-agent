@@ -289,6 +289,16 @@ def test_play_rejects_non_positive_bpm_override() -> None:
         )
 
 
+def test_play_rejects_negative_comparison_delay() -> None:
+    with pytest.raises(ValueError, match="delay_between must be >= 0"):
+        play(
+            source="comparison",
+            song_id="twinkle",
+            segment_id="verse1",
+            delay_between=-0.1,
+        )
+
+
 def test_play_rejects_non_positive_meta_beats_per_measure(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.playback.reference.load_meta",
