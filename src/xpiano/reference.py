@@ -200,3 +200,14 @@ def latest_report_path(song_id: str, data_dir: str | Path | None = None) -> Path
     if not reports:
         raise FileNotFoundError(f"no reports found for song: {song_id}")
     return reports[-1]
+
+
+def load_reference_notes(song_id: str, data_dir: str | Path | None = None) -> list[dict[str, Any]]:
+    path = song_dir(song_id, data_dir=data_dir) / "reference_notes.json"
+    if not path.exists():
+        raise FileNotFoundError(f"reference_notes.json missing for song: {song_id}")
+    with path.open("r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+    if not isinstance(payload, list):
+        raise ValueError("reference_notes.json must be a list")
+    return payload

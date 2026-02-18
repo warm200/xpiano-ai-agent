@@ -13,6 +13,7 @@ from xpiano.llm_coach import get_coaching, save_coaching
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
 from xpiano.report import build_report, save_report
+from xpiano.wait_mode import run_wait_mode
 
 app = typer.Typer(help="XPiano CLI")
 console = Console()
@@ -260,6 +261,26 @@ def playback(
         data_dir=data_dir,
     )
     console.print(f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
+
+
+@app.command("wait")
+def wait(
+    song: str = typer.Option(..., "--song"),
+    segment: str = typer.Option("default", "--segment"),
+    bpm: float | None = typer.Option(None, "--bpm"),
+    input_port: str | None = typer.Option(None, "--input-port"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    result = run_wait_mode(
+        song_id=song,
+        segment_id=segment,
+        bpm=bpm,
+        port=input_port,
+        data_dir=data_dir,
+    )
+    console.print(
+        f"Wait mode: completed={result.completed}/{result.total_steps} errors={result.errors}"
+    )
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from xpiano.cli import app
 from xpiano.models import PlayResult
+from xpiano.wait_mode import WaitModeResult
 
 runner = CliRunner()
 
@@ -141,3 +142,16 @@ def test_playback_command_calls_engine(monkeypatch) -> None:
     )
     assert result.exit_code == 0
     assert "Playback status: played" in result.stdout
+
+
+def test_wait_command_calls_engine(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.cli.run_wait_mode",
+        lambda **kwargs: WaitModeResult(total_steps=4, completed=3, errors=1),
+    )
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code == 0
+    assert "completed=3/4 errors=1" in result.stdout
