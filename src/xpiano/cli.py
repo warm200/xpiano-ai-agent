@@ -243,8 +243,17 @@ def _resolve_attempt_path(
     report_path: Path,
     data_dir: Path | None,
 ) -> Path:
-    raw = Path(attempt_path.strip())
+    raw = Path(attempt_path.strip()).expanduser()
     if raw.is_absolute():
+        if raw.exists():
+            return raw
+        by_report_name = (report_path.parent / raw.name).resolve()
+        if by_report_name.exists():
+            return by_report_name
+        attempts_sibling = (report_path.parent.parent /
+                            "attempts" / raw.name).resolve()
+        if attempts_sibling.exists():
+            return attempts_sibling
         return raw
     report_relative = (report_path.parent / raw).resolve()
     if report_relative.exists():
