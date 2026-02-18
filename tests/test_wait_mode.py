@@ -172,6 +172,33 @@ def test_run_wait_mode_event_stream_callbacks(xpiano_home: Path) -> None:
     assert timeouts == []
 
 
+def test_run_wait_mode_event_stream_short_input_counts_timeouts(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    notes = [
+        _note(60, 0.0, "C4"),
+        _note(62, 0.5, "D4"),
+        _note(64, 1.0, "E4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    timeouts: list[list[str]] = []
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+        event_stream=[{60}],
+        on_timeout=lambda step: timeouts.append(step.pitch_names),
+    )
+    assert result.total_steps == 3
+    assert result.completed == 1
+    assert result.errors == 2
+    assert timeouts == [["D4"], ["E4"]]
+
+
 def test_run_wait_mode_filters_by_segment(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

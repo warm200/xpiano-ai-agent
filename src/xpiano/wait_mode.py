@@ -159,7 +159,10 @@ def run_wait_mode(
             if on_step is not None:
                 on_step(step)
             if idx >= len(incoming):
-                break
+                errors += 1
+                if on_timeout is not None:
+                    on_timeout(step)
+                continue
             if incoming[idx] == step.pitches:
                 completed += 1
                 if on_match is not None:
