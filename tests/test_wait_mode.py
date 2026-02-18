@@ -59,6 +59,17 @@ def test_build_pitch_sequence_rejects_non_positive_bpm() -> None:
         raise AssertionError("expected ValueError for non-positive bpm")
 
 
+def test_build_pitch_sequence_rejects_out_of_range_bpm() -> None:
+    meta = _meta()
+    meta["bpm"] = 241
+    try:
+        _ = build_pitch_sequence([], meta)
+    except ValueError as exc:
+        assert "invalid bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range bpm")
+
+
 def test_build_pitch_sequence_rejects_non_positive_beats_per_measure() -> None:
     meta = _meta()
     meta["time_signature"]["beats_per_measure"] = 0
