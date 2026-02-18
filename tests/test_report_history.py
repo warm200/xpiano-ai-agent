@@ -72,6 +72,21 @@ def test_latest_valid_report_path_filters_segment(xpiano_home: Path) -> None:
     assert resolved.name == "20260101_120000.json"
 
 
+def test_latest_valid_report_path_normalizes_whitespace_segment_id(
+    xpiano_home: Path,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, " verse1 ")
+
+    resolved = latest_valid_report_path(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+    )
+    assert resolved.name == "20260101_120000.json"
+
+
 def test_build_history_rejects_non_positive_attempts(xpiano_home: Path) -> None:
     try:
         _ = build_history(song_id="twinkle", attempts=0, data_dir=xpiano_home)
@@ -220,3 +235,20 @@ def test_build_history_parses_decimal_integer_strings(
     assert rows[0]["matched"] == 8
     assert rows[0]["missing"] == 2
     assert rows[0]["extra"] == 1
+
+
+def test_build_history_normalizes_whitespace_segment_id(
+    xpiano_home: Path,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, " verse1 ")
+
+    rows = build_history(
+        song_id="twinkle",
+        segment_id="verse1",
+        attempts=5,
+        data_dir=xpiano_home,
+    )
+    assert len(rows) == 1
+    assert rows[0]["segment_id"] == "verse1"

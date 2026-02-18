@@ -59,6 +59,13 @@ def _as_dict(value: Any) -> dict[str, Any]:
     return {}
 
 
+def _normalize_segment_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized if normalized else None
+
+
 def _top_problems(result: AnalysisResult, limit: int = 5) -> list[str]:
     by_type_measure = Counter((event.type, event.measure)
                               for event in result.events)
@@ -167,19 +174,21 @@ def latest_valid_report_path(
     segment_id: str | None = None,
     data_dir: str | Path | None = None,
 ) -> Path:
+    target_segment = _normalize_segment_id(segment_id)
     paths = list_reports(song_id=song_id, data_dir=data_dir)
     for path in reversed(paths):
         try:
             report = load_report(path)
         except Exception:
             continue
-        if segment_id is not None and report.get("segment_id") != segment_id:
+        report_segment = _normalize_segment_id(report.get("segment_id"))
+        if target_segment is not None and report_segment != target_segment:
             continue
         return path
-    if segment_id is None:
+    if target_segment is None:
         raise FileNotFoundError(f"no valid reports found for song: {song_id}")
     raise FileNotFoundError(
-        f"no valid reports found for song: {song_id} segment: {segment_id}"
+        f"no valid reports found for song: {song_id} segment: {target_segment}"
     )
 
 
@@ -191,6 +200,7 @@ def build_history(
 ) -> list[dict[str, Any]]:
     if attempts <= 0:
         raise ValueError("attempts must be > 0")
+    target_segment = _normalize_segment_id(segment_id)
     paths = list_reports(song_id=song_id, data_dir=data_dir)
     rows: list[dict[str, Any]] = []
     for path in paths:
@@ -204,7 +214,8 @@ def build_history(
                 continue
             if not isinstance(report, dict):
                 continue
-        if segment_id and report.get("segment_id") != segment_id:
+        report_segment = _normalize_segment_id(report.get("segment_id"))
+        if target_segment is not None and report_segment != target_segment:
             continue
         summary = _as_dict(report.get("summary"))
         counts = _as_dict(summary.get("counts"))
@@ -217,7 +228,7 @@ def build_history(
             {
                 "path": str(path),
                 "filename": path.name,
-                "segment_id": report.get("segment_id"),
+                "segment_id": report_segment,
                 "match_rate": match_rate,
                 "missing": _coerce_int(counts.get("missing", 0)),
                 "extra": _coerce_int(counts.get("extra", 0)),
