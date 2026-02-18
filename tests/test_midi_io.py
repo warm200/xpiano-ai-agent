@@ -91,9 +91,22 @@ def test_play_midi_rejects_non_positive_bpm_override() -> None:
             bpm=0,
         )
     except ValueError as exc:
-        assert "bpm must be > 0" in str(exc)
+        assert "bpm must be in range 20..240" in str(exc)
     else:
         raise AssertionError("expected ValueError for non-positive bpm override")
+
+
+def test_play_midi_rejects_out_of_range_bpm_override() -> None:
+    try:
+        _ = midi_io.play_midi(
+            port=None,
+            midi=midi_io.mido.MidiFile(),
+            bpm=241,
+        )
+    except ValueError as exc:
+        assert "bpm must be in range 20..240" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range bpm override")
 
 
 def test_play_midi_rejects_negative_start_sec() -> None:

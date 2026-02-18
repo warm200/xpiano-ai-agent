@@ -119,8 +119,8 @@ def play_midi(
     highlight_pitches: set[int] | None = None,
     velocity_boost: int = 40,
 ) -> PlayResult:
-    if bpm is not None and bpm <= 0:
-        raise ValueError("bpm must be > 0")
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise ValueError("bpm must be in range 20..240")
     if start_sec < 0:
         raise ValueError("start_sec must be >= 0")
     if end_sec is not None and end_sec < 0:
