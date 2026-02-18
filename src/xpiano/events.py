@@ -79,6 +79,16 @@ def _pitches_to_names(notes: list[NoteEvent], pitches: set[int]) -> list[str]:
     return sorted(names)
 
 
+def _validate_timing_meta(meta: dict) -> tuple[int, float]:
+    beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    bpm = float(meta["bpm"])
+    if beats_per_measure <= 0:
+        raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
+    return beats_per_measure, bpm
+
+
 def generate_events(
     ref: list[NoteEvent],
     attempt: list[NoteEvent],
@@ -96,8 +106,7 @@ def generate_events(
     long_ratio = float(tolerance.get("duration_long_ratio", 1.5))
     chord_window_ms = float(tolerance.get("chord_window_ms", 50))
 
-    beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
-    bpm = float(meta["bpm"])
+    beats_per_measure, bpm = _validate_timing_meta(meta)
     start_measure = _segment_start_measure(meta, segment_id=segment_id)
 
     matched_ref_indices: set[int] = set()

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from xpiano.events import generate_events
 from xpiano.models import AlignmentResult, NoteEvent
 
@@ -97,3 +99,33 @@ def test_generate_events_respects_selected_segment_start_measure() -> None:
     assert len(events) == 1
     assert events[0].type == "timing_late"
     assert events[0].measure == 2
+
+
+def test_generate_events_rejects_non_positive_bpm() -> None:
+    meta = _meta()
+    meta["bpm"] = 0
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+    with pytest.raises(ValueError, match="invalid bpm"):
+        _ = generate_events(
+            ref=ref,
+            attempt=attempt,
+            alignment=alignment,
+            meta=meta,
+        )
+
+
+def test_generate_events_rejects_non_positive_beats_per_measure() -> None:
+    meta = _meta()
+    meta["time_signature"]["beats_per_measure"] = 0
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+    with pytest.raises(ValueError, match="beats_per_measure must be > 0"):
+        _ = generate_events(
+            ref=ref,
+            attempt=attempt,
+            alignment=alignment,
+            meta=meta,
+        )
