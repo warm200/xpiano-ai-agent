@@ -702,6 +702,12 @@ def report(
             return
     try:
         payload = load_report(report_path)
+    except FileNotFoundError:
+        if segment is None:
+            console.print("No report history.")
+        else:
+            console.print("No report found for segment.")
+        return
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(f"Report: {report_path}")
@@ -737,6 +743,12 @@ def coach(
             return
     try:
         report_payload = load_report(report_path)
+    except FileNotFoundError:
+        if segment is None:
+            console.print("No report history.")
+        else:
+            console.print("No report found for segment.")
+        return
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
