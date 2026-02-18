@@ -19,6 +19,11 @@ def test_claude_provider_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
         ClaudeProvider(api_key=None, api_key_env="ANTHROPIC_API_KEY")
 
 
+def test_claude_provider_rejects_non_positive_max_tool_rounds() -> None:
+    with pytest.raises(ValueError, match="max_tool_rounds must be > 0"):
+        ClaudeProvider(api_key="test-key", max_tool_rounds=0)
+
+
 def test_claude_provider_generate(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeMessages:
         def create(self, **kwargs):
@@ -278,3 +283,53 @@ def test_claude_provider_stream_with_tool_results_propagates_tool_errors(
     provider = ClaudeProvider(api_key="test-key")
     with pytest.raises(ValueError, match="tool failed"):
         asyncio.run(_run(provider))
+
+
+def test_claude_provider_stream_with_tool_results_stops_after_max_rounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeToolUseBlock:
+        type = "tool_use"
+        id = "toolu_123"
+        name = "playback_control"
+        input = {"source": "reference"}
+
+    class FakeMessages:
+        def __init__(self):
+            self.calls = 0
+
+        def create(self, **kwargs):
+            _ = kwargs
+            self.calls += 1
+            return SimpleNamespace(content=[FakeToolUseBlock()])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("fallback stream should not run for max-round guard")
+
+    fake_messages = FakeMessages()
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = fake_messages
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=[{"name": "playback_control", "parameters": {"type": "object"}}],
+            on_tool_use=lambda event: {"status": "played", "source": event["input"]["source"]},
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key", max_tool_rounds=2)
+    events = asyncio.run(_collect(provider))
+    assert fake_messages.calls == 2
+    assert any(
+        event.get("type") == "text_delta"
+        and "too many tool rounds" in str(event.get("text", ""))
+        for event in events
+    )
