@@ -188,6 +188,45 @@ def test_setup_preserves_existing_count_in_when_omitted(xpiano_home: Path) -> No
     assert segment["count_in_measures"] == 3
 
 
+def test_setup_preserves_existing_split_pitch_when_omitted(xpiano_home: Path) -> None:
+    first = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--split-pitch",
+            "55",
+        ],
+    )
+    assert first.exit_code == 0
+
+    second = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "90",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert second.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["hand_split"]["split_pitch"] == 55
+
+
 def test_setup_rejects_invalid_measure_range() -> None:
     result = runner.invoke(
         app,

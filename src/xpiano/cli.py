@@ -140,14 +140,14 @@ def setup(
     time_sig: str = typer.Option("4/4", "--time-sig"),
     measures: str | None = typer.Option(None, "--measures"),
     count_in: int | None = typer.Option(None, "--count-in"),
-    split_pitch: int = typer.Option(60, "--split-pitch"),
+    split_pitch: int | None = typer.Option(None, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     song = _require_song(song)
     segment = _require_segment(segment)
     if bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
-    if split_pitch < 0 or split_pitch > 127:
+    if split_pitch is not None and (split_pitch < 0 or split_pitch > 127):
         raise typer.BadParameter("split-pitch must be in range 0..127")
     config.ensure_config(data_dir=data_dir)
     beats_per_measure, beat_unit = _parse_time_signature(time_sig)
@@ -160,7 +160,7 @@ def setup(
             "time_signature": {"beats_per_measure": beats_per_measure, "beat_unit": beat_unit},
             "bpm": bpm,
             "segments": [],
-            "hand_split": {"split_pitch": split_pitch},
+            "hand_split": {"split_pitch": 60},
             "tolerance": config.load_config(data_dir=data_dir)["tolerance"],
         }
     existing_segment = next(
@@ -184,11 +184,13 @@ def setup(
         if count_in <= 0:
             raise typer.BadParameter("count-in must be > 0")
         count_in_measures = count_in
+    existing_split_pitch = int(meta.get("hand_split", {}).get("split_pitch", 60))
+    resolved_split_pitch = existing_split_pitch if split_pitch is None else split_pitch
     meta["song_id"] = song
     meta["time_signature"] = {
         "beats_per_measure": beats_per_measure, "beat_unit": beat_unit}
     meta["bpm"] = bpm
-    meta["hand_split"] = {"split_pitch": split_pitch}
+    meta["hand_split"] = {"split_pitch": resolved_split_pitch}
     segments = [s for s in meta.get(
         "segments", []) if s.get("segment_id") != segment]
     segments.append(
