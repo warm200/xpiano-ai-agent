@@ -988,6 +988,66 @@ def test_record_rejects_invalid_segment_range(
     assert record_result.exit_code != 0
 
 
+def test_record_rejects_non_positive_segment_start_from_meta(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "xpiano.cli.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+            "bpm": 120,
+            "segments": [{"segment_id": "default", "start_measure": 0, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.reference.reference_midi_path",
+        lambda **kwargs: sample_midi_path,
+    )
+    called = {"record": False}
+
+    def _fake_record(**kwargs):
+        _ = kwargs
+        called["record"] = True
+        return _recorded_midi()
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", _fake_record)
+    result = runner.invoke(app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert result.exit_code != 0
+    assert called["record"] is False
+
+
+def test_record_rejects_non_positive_meta_bpm_from_meta(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "xpiano.cli.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+            "bpm": 0,
+            "segments": [{"segment_id": "default", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.reference.reference_midi_path",
+        lambda **kwargs: sample_midi_path,
+    )
+    called = {"record": False}
+
+    def _fake_record(**kwargs):
+        _ = kwargs
+        called["record"] = True
+        return _recorded_midi()
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", _fake_record)
+    result = runner.invoke(app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert result.exit_code != 0
+    assert called["record"] is False
+
+
 def test_coach_command_with_mocked_provider(
     xpiano_home: Path,
     monkeypatch,

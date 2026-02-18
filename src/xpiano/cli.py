@@ -118,7 +118,7 @@ def _segment_meta(meta: dict, segment_id: str) -> dict:
         if segment.get("segment_id") == segment_id:
             start_measure = int(segment.get("start_measure", 1))
             end_measure = int(segment.get("end_measure", start_measure))
-            if end_measure < start_measure:
+            if start_measure <= 0 or end_measure < start_measure:
                 raise typer.BadParameter(
                     f"invalid segment range for {segment_id}: {start_measure}-{end_measure}"
                 )
@@ -305,8 +305,19 @@ def record(
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
+    if beats_per_measure <= 0:
+        raise typer.BadParameter(
+            "invalid time signature: beats_per_measure must be > 0"
+        )
+    if bpm <= 0:
+        raise typer.BadParameter("invalid bpm: must be > 0")
     measures = int(segment_cfg["end_measure"]) - \
         int(segment_cfg["start_measure"]) + 1
+    if measures <= 0:
+        raise typer.BadParameter(
+            f"invalid segment range for {segment}: "
+            f"{segment_cfg['start_measure']}-{segment_cfg['end_measure']}"
+        )
     count_in_measures = int(segment_cfg.get("count_in_measures", 1))
     if count_in_measures <= 0:
         raise typer.BadParameter("segment count_in_measures must be > 0")
