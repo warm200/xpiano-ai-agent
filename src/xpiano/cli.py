@@ -290,6 +290,21 @@ def _resolve_report_path_from_row(
     candidate = reference.song_dir(song_id=song_id, data_dir=data_dir) / "reports" / filename
     if candidate.exists():
         return candidate
+    # Graceful fallback for renamed timestamp files: choose latest report in same segment.
+    segment_id = str(row.get("segment_id", "")).strip()
+    if segment_id:
+        history_rows = build_history(
+            song_id=song_id,
+            segment_id=segment_id,
+            attempts=1,
+            data_dir=data_dir,
+        )
+        if history_rows:
+            latest_path = str(history_rows[-1].get("path", "")).strip()
+            if latest_path:
+                latest_candidate = Path(latest_path)
+                if latest_candidate.exists():
+                    return latest_candidate
     return None
 
 

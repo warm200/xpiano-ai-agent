@@ -2305,6 +2305,31 @@ def test_compare_with_playback_uses_data_dir_for_relative_row_path(
     assert "Playback compare:" in result.stdout
 
 
+def test_resolve_report_path_from_row_falls_back_to_latest_segment_report(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    latest = reports_dir / "latest.json"
+    latest.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "xpiano.cli.build_history",
+        lambda **kwargs: [
+            {
+                "segment_id": "verse1",
+                "path": str(latest),
+            }
+        ],
+    )
+    resolved = cli_module._resolve_report_path_from_row(
+        row={"filename": "missing.json", "segment_id": "verse1"},
+        song_id="twinkle",
+        data_dir=xpiano_home,
+    )
+    assert resolved == latest
+
+
 def test_compare_with_playback_recovers_stale_absolute_attempt_paths(
     xpiano_home: Path,
     monkeypatch,
