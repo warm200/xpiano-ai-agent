@@ -37,6 +37,51 @@ def test_setup_and_list_command(xpiano_home: Path) -> None:
     assert "twinkle" in result.stdout
 
 
+def test_setup_accepts_measure_range(xpiano_home: Path) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--measures",
+            "5-8",
+        ],
+    )
+    assert result.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    segment = next(item for item in meta["segments"] if item["segment_id"] == "verse2")
+    assert segment["start_measure"] == 5
+    assert segment["end_measure"] == 8
+
+
+def test_setup_rejects_invalid_measure_range() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--measures",
+            "8-5",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,

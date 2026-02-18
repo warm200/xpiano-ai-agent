@@ -35,6 +35,25 @@ def _parse_time_signature(time_sig: str) -> tuple[int, int]:
     return beats_per_measure, beat_unit
 
 
+def _parse_measures(value: str) -> tuple[int, int]:
+    if "-" in value:
+        try:
+            start_raw, end_raw = value.split("-", maxsplit=1)
+            start = int(start_raw)
+            end = int(end_raw)
+        except ValueError as exc:
+            raise typer.BadParameter("measures must be N or START-END (e.g. 4 or 1-4)") from exc
+    else:
+        try:
+            end = int(value)
+        except ValueError as exc:
+            raise typer.BadParameter("measures must be N or START-END (e.g. 4 or 1-4)") from exc
+        start = 1
+    if start <= 0 or end <= 0 or end < start:
+        raise typer.BadParameter("measures must be positive and end >= start")
+    return start, end
+
+
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
@@ -72,13 +91,14 @@ def setup(
     segment: str = typer.Option("default", "--segment"),
     bpm: float = typer.Option(..., "--bpm"),
     time_sig: str = typer.Option("4/4", "--time-sig"),
-    measures: int = typer.Option(4, "--measures"),
+    measures: str = typer.Option("4", "--measures"),
     count_in: int = typer.Option(1, "--count-in"),
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     config.ensure_config(data_dir=data_dir)
     beats_per_measure, beat_unit = _parse_time_signature(time_sig)
+    start_measure, end_measure = _parse_measures(measures)
 
     try:
         meta = reference.load_meta(song_id=song, data_dir=data_dir)
@@ -102,8 +122,8 @@ def setup(
         {
             "segment_id": segment,
             "label": segment,
-            "start_measure": 1,
-            "end_measure": measures,
+            "start_measure": start_measure,
+            "end_measure": end_measure,
             "count_in_measures": count_in,
         }
     )
