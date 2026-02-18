@@ -510,7 +510,18 @@ def record(
                     "Streaming output invalid, using fallback coaching: "
                     + "; ".join(stream_errors)
                 )
-                coaching = fallback_output(report_data)
+                try:
+                    coaching = get_coaching(
+                        report=report_data,
+                        provider=provider,
+                        max_retries=_resolve_max_retries(cfg),
+                    )
+                except Exception as exc:
+                    console.print(
+                        "Batch coaching recovery failed, using fallback coaching: "
+                        + str(exc)
+                    )
+                    coaching = fallback_output(report_data)
         coaching_path = save_coaching(
             coaching=coaching, song_id=song, data_dir=data_dir)
         console.print(f"Saved coaching: {coaching_path}")

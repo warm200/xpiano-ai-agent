@@ -1028,6 +1028,105 @@ def test_record_full_tier_falls_back_when_stream_output_invalid(
     assert "Saved coaching:" in record_result.stdout
 
 
+def test_record_full_tier_recovers_batch_coaching_when_stream_invalid(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+
+    async def _fake_stream(**kwargs):
+        _ = kwargs
+        return "not json"
+
+    monkeypatch.setattr("xpiano.cli.stream_coaching", _fake_stream)
+    monkeypatch.setattr(
+        "xpiano.cli.get_coaching",
+        lambda **kwargs: {
+            "goal": "Recovered coaching",
+            "top_issues": [{"title": "issue", "why": "why", "evidence": ["ev"]}],
+            "drills": [
+                {
+                    "name": "slow",
+                    "minutes": 7,
+                    "bpm": 40,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1",
+                },
+                {
+                    "name": "chunk",
+                    "minutes": 8,
+                    "bpm": 45,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1-2",
+                },
+            ],
+            "pass_conditions": {
+                "before_speed_up": ["x", "y"],
+                "speed_up_rule": "+5",
+            },
+            "next_recording": {
+                "what_to_record": "same",
+                "tips": ["t1", "t2"],
+            },
+        },
+    )
+    fallback_called = {"count": 0}
+
+    def _fallback(report):
+        _ = report
+        fallback_called["count"] += 1
+        return {
+            "goal": "fallback",
+            "top_issues": [{"title": "issue", "why": "why", "evidence": ["ev"]}],
+            "drills": [
+                {
+                    "name": "slow",
+                    "minutes": 7,
+                    "bpm": 40,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1",
+                },
+                {
+                    "name": "chunk",
+                    "minutes": 8,
+                    "bpm": 45,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1-2",
+                },
+            ],
+            "pass_conditions": {
+                "before_speed_up": ["x", "y"],
+                "speed_up_rule": "+5",
+            },
+            "next_recording": {
+                "what_to_record": "same",
+                "tips": ["t1", "t2"],
+            },
+        }
+
+    monkeypatch.setattr("xpiano.cli.fallback_output", _fallback)
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/recovered_stream_coaching.json"),
+    )
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Streaming output invalid" in record_result.stdout
+    assert "Saved coaching:" in record_result.stdout
+    assert fallback_called["count"] == 0
+
+
 def test_record_full_tier_streaming_triggers_playback(
     sample_midi_path: Path,
     monkeypatch,
