@@ -57,6 +57,42 @@ def test_import_reference_rejects_segment_id_with_path_separator(sample_midi_pat
         raise AssertionError("expected ValueError for invalid segment_id")
 
 
+def test_import_reference_rejects_out_of_range_midi_bpm(sample_midi_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference._extract_midi_defaults",
+        lambda path: {
+            "bpm": 241.0,
+            "beats_per_measure": 4,
+            "beat_unit": 4,
+            "measures": 2,
+        },
+    )
+    try:
+        _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    except ValueError as exc:
+        assert "invalid reference midi tempo" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range midi bpm")
+
+
+def test_import_reference_rejects_unsupported_midi_beat_unit(sample_midi_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference._extract_midi_defaults",
+        lambda path: {
+            "bpm": 120.0,
+            "beats_per_measure": 4,
+            "beat_unit": 32,
+            "measures": 2,
+        },
+    )
+    try:
+        _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    except ValueError as exc:
+        assert "invalid reference midi time signature" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unsupported midi beat_unit")
+
+
 def test_import_reference_refreshes_meta_tempo_from_midi(
     xpiano_home: Path,
     sample_midi_path: Path,

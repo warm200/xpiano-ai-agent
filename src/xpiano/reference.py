@@ -86,6 +86,25 @@ def _extract_midi_defaults(midi_path: Path) -> dict[str, Any]:
     }
 
 
+def _validate_midi_defaults(defaults: dict[str, Any]) -> None:
+    bpm = float(defaults["bpm"])
+    beats_per_measure = int(defaults["beats_per_measure"])
+    beat_unit = int(defaults["beat_unit"])
+    measures = int(defaults["measures"])
+    if bpm < 20 or bpm > 240:
+        raise ValueError(f"invalid reference midi tempo: bpm must be in range 20..240 (got {bpm})")
+    if beats_per_measure <= 0:
+        raise ValueError(
+            f"invalid reference midi time signature: beats_per_measure must be > 0 (got {beats_per_measure})"
+        )
+    if beat_unit not in {1, 2, 4, 8, 16}:
+        raise ValueError(
+            f"invalid reference midi time signature: beat_unit must be one of 1,2,4,8,16 (got {beat_unit})"
+        )
+    if measures <= 0:
+        raise ValueError(f"invalid reference midi length: measures must be > 0 (got {measures})")
+
+
 def _default_meta(
     song_id: str,
     midi_defaults: dict[str, Any],
@@ -136,6 +155,7 @@ def import_reference(
         json.dump([asdict(n) for n in notes], fp, ensure_ascii=True, indent=2)
 
     defaults = _extract_midi_defaults(target_ref)
+    _validate_midi_defaults(defaults)
     meta_path = target_song_dir / "meta.json"
     if not meta_path.exists():
         save_meta(
