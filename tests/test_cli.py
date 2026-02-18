@@ -454,6 +454,15 @@ def test_report_command_without_reports_prints_message(xpiano_home: Path) -> Non
     assert "No report history." in result.stdout
 
 
+def test_report_command_invalid_report_schema_returns_error(xpiano_home: Path) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    bad_payload = {"song_id": "twinkle"}
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(bad_payload), encoding="utf-8")
+    result = runner.invoke(app, ["report", "--song", "twinkle"])
+    assert result.exit_code != 0
+
+
 def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
     result = runner.invoke(
         app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
@@ -616,14 +625,17 @@ def test_coach_command_with_mocked_provider(
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / "20260101_120000.json"
     report_payload = {
+        "version": "0.1",
         "song_id": "twinkle",
         "segment_id": "verse1",
         "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
         "summary": {
             "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
             "match_rate": 0.8,
             "top_problems": ["M2 wrong_pitch x2"],
         },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
         "events": [],
     }
     report_path.write_text(json.dumps(report_payload), encoding="utf-8")
@@ -670,6 +682,15 @@ def test_coach_command_without_reports_prints_message(xpiano_home: Path) -> None
     result = runner.invoke(app, ["coach", "--song", "twinkle"])
     assert result.exit_code == 0
     assert "No report history." in result.stdout
+
+
+def test_coach_command_invalid_report_schema_returns_error(xpiano_home: Path) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    bad_payload = {"song_id": "twinkle"}
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(bad_payload), encoding="utf-8")
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code != 0
 
 
 def test_coach_command_with_segment_filter(
@@ -773,14 +794,17 @@ def test_coach_stream_command(
     reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = reports_dir / "20260101_120000.json"
     report_payload = {
+        "version": "0.1",
         "song_id": "twinkle",
         "segment_id": "verse1",
         "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
         "summary": {
             "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
             "match_rate": 0.8,
             "top_problems": ["M2 wrong_pitch x2"],
         },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
         "events": [],
     }
     report_path.write_text(json.dumps(report_payload), encoding="utf-8")

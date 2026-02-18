@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
 from typing import Literal
 
@@ -17,7 +16,7 @@ from xpiano.llm_coach import (fallback_output, get_coaching, save_coaching,
                               stream_coaching)
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
-from xpiano.report import build_history, build_report, save_report
+from xpiano.report import build_history, build_report, load_report, save_report
 from xpiano.wait_mode import run_wait_mode
 
 app = typer.Typer(help="XPiano CLI")
@@ -393,8 +392,10 @@ def report(
             console.print("No report found for segment.")
             return
         report_path = Path(rows[-1]["path"])
-    with report_path.open("r", encoding="utf-8") as fp:
-        payload = json.load(fp)
+    try:
+        payload = load_report(report_path)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Report: {report_path}")
     console.print(render_report(payload))
     console.print(render_piano_roll_diff(payload))
@@ -426,8 +427,10 @@ def coach(
             console.print("No report found for segment.")
             return
         report_path = Path(rows[-1]["path"])
-    with report_path.open("r", encoding="utf-8") as fp:
-        report_payload = json.load(fp)
+    try:
+        report_payload = load_report(report_path)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     provider = None
     try:
