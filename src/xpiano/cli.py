@@ -256,6 +256,13 @@ def _resolve_attempt_path(
     return raw.resolve()
 
 
+def _safe_note_name(note_number: int) -> str:
+    try:
+        return pretty_midi.note_number_to_name(int(note_number))
+    except Exception:
+        return f"note_{note_number}"
+
+
 @app.command("devices")
 def devices() -> None:
     entries = midi_io.list_devices()
@@ -741,7 +748,7 @@ def wait(
     def _on_wrong(step, played_pitches: set[int]) -> None:
         expected = ", ".join(step.pitch_names) if step.pitch_names else "(none)"
         played_names = sorted(
-            pretty_midi.note_number_to_name(pitch) for pitch in played_pitches
+            _safe_note_name(pitch) for pitch in played_pitches
         )
         played = ", ".join(played_names) if played_names else "(none)"
         console.print(f"  x expected {expected}, got {played}")

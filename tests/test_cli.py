@@ -1830,6 +1830,21 @@ def test_wait_command_renders_step_feedback(monkeypatch) -> None:
     assert "timeout waiting for E4" in result.stdout
 
 
+def test_wait_command_renders_invalid_played_note_safely(monkeypatch) -> None:
+    def _fake_wait_mode(**kwargs):
+        kwargs["on_step"](PitchSetStep(measure=1, beat=1.0, pitches={60}, pitch_names=["C4"]))
+        kwargs["on_wrong"](PitchSetStep(measure=1, beat=1.0, pitches={60}, pitch_names=["C4"]), {"bad"})
+        return WaitModeResult(total_steps=1, completed=0, errors=1)
+
+    monkeypatch.setattr("xpiano.cli.run_wait_mode", _fake_wait_mode)
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code == 0
+    assert "x expected C4, got note_bad" in result.stdout
+
+
 def test_wait_command_requires_song_setup(xpiano_home: Path) -> None:
     _ = xpiano_home
     result = runner.invoke(
