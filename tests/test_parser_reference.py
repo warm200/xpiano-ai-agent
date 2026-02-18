@@ -145,3 +145,47 @@ def test_record_reference_rejects_invalid_segment_range(
         assert "invalid segment range" in str(exc)
     else:
         raise AssertionError("expected ValueError for invalid segment range")
+
+
+def test_record_reference_rejects_non_positive_segment_start(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+            "bpm": 120,
+            "segments": [{"segment_id": "default", "start_measure": 0, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.reference.midi_io.record",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("midi_io.record should not be called")),
+    )
+    try:
+        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+    except ValueError as exc:
+        assert "invalid segment range" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive segment start")
+
+
+def test_record_reference_rejects_non_positive_meta_bpm(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+            "bpm": 0,
+            "segments": [{"segment_id": "default", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.reference.midi_io.record",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("midi_io.record should not be called")),
+    )
+    try:
+        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+    except ValueError as exc:
+        assert "invalid bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive bpm")

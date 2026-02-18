@@ -266,11 +266,17 @@ def record_reference(
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
-    measures = int(segment["end_measure"]) - int(segment["start_measure"]) + 1
-    if measures <= 0:
+    start_measure = int(segment["start_measure"])
+    end_measure = int(segment["end_measure"])
+    if beats_per_measure <= 0:
+        raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
+    if start_measure <= 0 or end_measure < start_measure:
         raise ValueError(
-            f"invalid segment range: {segment['start_measure']}-{segment['end_measure']}"
+            f"invalid segment range: {start_measure}-{end_measure}"
         )
+    measures = end_measure - start_measure + 1
     count_in_measures = int(segment.get("count_in_measures", 1))
     if count_in_measures <= 0:
         raise ValueError("segment count_in_measures must be > 0")
