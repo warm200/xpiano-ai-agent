@@ -334,6 +334,22 @@ def test_import_command_rejects_empty_segment(sample_midi_path: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_rejects_empty_segment() -> None:
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "", "--mode", "reference"],
+    )
+    assert result.exit_code != 0
+
+
+def test_report_command_rejects_empty_segment() -> None:
+    result = runner.invoke(
+        app,
+        ["report", "--song", "twinkle", "--segment", ""],
+    )
+    assert result.exit_code != 0
+
+
 def _recorded_midi() -> mido.MidiFile:
     mid = mido.MidiFile(ticks_per_beat=480)
     track = mido.MidiTrack()

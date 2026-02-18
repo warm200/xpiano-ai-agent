@@ -78,6 +78,18 @@ def _default_segment_bounds(meta: dict) -> tuple[int, int]:
     return min(starts), max(ends)
 
 
+def _require_segment(value: str) -> str:
+    if not value.strip():
+        raise typer.BadParameter("segment must be non-empty")
+    return value
+
+
+def _require_optional_segment(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return _require_segment(value)
+
+
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
@@ -126,8 +138,7 @@ def setup(
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
-    if not segment.strip():
-        raise typer.BadParameter("segment must be non-empty")
+    segment = _require_segment(segment)
     if bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
     if split_pitch < 0 or split_pitch > 127:
@@ -195,8 +206,7 @@ def import_song(
     segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
-    if segment is not None and not segment.strip():
-        raise typer.BadParameter("segment must be non-empty")
+    segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
     path = reference.import_reference(
         midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)
@@ -248,6 +258,7 @@ def record(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
     meta = reference.load_meta(song_id=song, data_dir=data_dir)
     segment_cfg = _segment_meta(meta, segment_id=segment)
@@ -339,6 +350,7 @@ def record_ref(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_segment(segment)
     config.ensure_config(data_dir=data_dir)
     path = reference.record_reference(
         song_id=song,
@@ -356,6 +368,7 @@ def report(
     segment: str | None = typer.Option(None, "--segment"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
     if segment is None:
         report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
@@ -384,6 +397,7 @@ def coach(
     stream: bool = typer.Option(False, "--stream"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_optional_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
     if segment is None:
         report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
@@ -488,6 +502,7 @@ def playback(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
     try:
@@ -515,6 +530,7 @@ def wait(
     input_port: str | None = typer.Option(None, "--input-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
     result = run_wait_mode(
@@ -536,6 +552,7 @@ def history(
     attempts: str = typer.Option("5", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_optional_segment(segment)
     attempt_count = _parse_attempts(attempts)
     rows = build_history(
         song_id=song,
@@ -570,6 +587,7 @@ def compare(
     attempts: str = typer.Option("2", "--attempts"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    segment = _require_optional_segment(segment)
     attempt_count = _parse_attempts(attempts)
     rows = build_history(
         song_id=song,
