@@ -425,16 +425,19 @@ def playback(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
-    result = playback_play(
-        source=mode,
-        song_id=song,
-        segment_id=segment,
-        measures=measures,
-        bpm=bpm,
-        highlight_pitches=highlight,
-        output_port=output_port,
-        data_dir=data_dir,
-    )
+    try:
+        result = playback_play(
+            source=mode,
+            song_id=song,
+            segment_id=segment,
+            measures=measures,
+            bpm=bpm,
+            highlight_pitches=highlight,
+            output_port=output_port,
+            data_dir=data_dir,
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
 

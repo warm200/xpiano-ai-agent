@@ -24,16 +24,35 @@ def _segment_config(meta: dict, segment_id: str) -> dict:
     raise ValueError(f"segment not found: {segment_id}")
 
 
+def _parse_measure(value: str) -> int:
+    try:
+        return int(value.strip())
+    except ValueError as exc:
+        raise ValueError(f"invalid measure value: {value}") from exc
+
+
 def _resolve_measures(segment: dict, measures: str | None) -> MeasureRange:
     default_start = int(segment["start_measure"])
     default_end = int(segment["end_measure"])
     if not measures:
         return MeasureRange(start=default_start, end=default_end)
     if "-" not in measures:
-        value = int(measures)
-        return MeasureRange(start=value, end=value)
-    start_s, end_s = measures.split("-", maxsplit=1)
-    return MeasureRange(start=int(start_s), end=int(end_s))
+        value = _parse_measure(measures)
+        start = value
+        end = value
+    else:
+        start_s, end_s = measures.split("-", maxsplit=1)
+        start = _parse_measure(start_s)
+        end = _parse_measure(end_s)
+
+    if start <= 0 or end <= 0 or end < start:
+        raise ValueError(f"invalid measure range: {measures}")
+    if start < default_start or end > default_end:
+        raise ValueError(
+            f"measure range {start}-{end} is outside segment "
+            f"{default_start}-{default_end}"
+        )
+    return MeasureRange(start=start, end=end)
 
 
 def _measure_to_sec(measure: int, bpm: float, beats_per_measure: int, segment_start_measure: int) -> float:

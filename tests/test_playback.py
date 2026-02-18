@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import mido
+import pytest
 
 from xpiano.models import PlayResult
 from xpiano.playback import play
@@ -152,3 +153,33 @@ def test_play_comparison_uses_relative_attempt_and_absolute_reference(xpiano_hom
     assert calls[0]["end_sec"] == 2.0
     assert calls[1]["start_sec"] == 2.0
     assert calls[1]["end_sec"] == 4.0
+
+
+def test_play_rejects_reverse_measure_range(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    save_meta(song_id="twinkle", meta=_meta())
+    with pytest.raises(ValueError, match="invalid measure range"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            measures="3-2",
+            data_dir=xpiano_home,
+        )
+
+
+def test_play_rejects_measure_outside_segment(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    save_meta(song_id="twinkle", meta=_meta_segment2())
+    with pytest.raises(ValueError, match="outside segment"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse2",
+            measures="1-2",
+            data_dir=xpiano_home,
+        )
