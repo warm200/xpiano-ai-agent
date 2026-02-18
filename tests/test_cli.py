@@ -231,6 +231,48 @@ def test_setup_preserves_existing_count_in_when_omitted(xpiano_home: Path) -> No
     assert segment["count_in_measures"] == 3
 
 
+def test_setup_new_segment_inherits_existing_count_in_when_omitted(
+    xpiano_home: Path,
+) -> None:
+    first = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--count-in",
+            "3",
+        ],
+    )
+    assert first.exit_code == 0
+
+    second = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert second.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    segment = next(item for item in meta["segments"] if item["segment_id"] == "verse2")
+    assert segment["count_in_measures"] == 3
+
+
 def test_setup_preserves_existing_split_pitch_when_omitted(xpiano_home: Path) -> None:
     first = runner.invoke(
         app,

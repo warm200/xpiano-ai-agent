@@ -78,6 +78,13 @@ def _default_segment_bounds(meta: dict) -> tuple[int, int]:
     return min(starts), max(ends)
 
 
+def _default_count_in(meta: dict) -> int:
+    segments = meta.get("segments", [])
+    if not segments:
+        return 1
+    return int(segments[0].get("count_in_measures", 1))
+
+
 def _require_segment(value: str) -> str:
     cleaned = value.strip()
     if not cleaned:
@@ -191,7 +198,7 @@ def setup(
         if existing_segment is not None:
             count_in_measures = int(existing_segment.get("count_in_measures", 1))
         else:
-            count_in_measures = 1
+            count_in_measures = _default_count_in(meta)
     else:
         if count_in <= 0:
             raise typer.BadParameter("count-in must be > 0")
