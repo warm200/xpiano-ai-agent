@@ -9,6 +9,9 @@ from rich.table import Table
 
 from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
+from xpiano.llm_coach import get_coaching, save_coaching
+from xpiano.llm_provider import create_provider
+from xpiano.playback import play as playback_play
 from xpiano.report import build_report, save_report
 
 app = typer.Typer(help="XPiano CLI")
@@ -209,6 +212,54 @@ def report(
         f"missing={counts.get('missing', 0)} "
         f"extra={counts.get('extra', 0)}"
     )
+
+
+@app.command("coach")
+def coach(
+    song: str = typer.Option(..., "--song"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    cfg = config.ensure_config(data_dir=data_dir)
+    report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+    with report_path.open("r", encoding="utf-8") as fp:
+        report_payload = json.load(fp)
+
+    provider = create_provider(cfg)
+    coaching = get_coaching(
+        report=report_payload,
+        provider=provider,
+        max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
+    )
+    output_path = save_coaching(
+        coaching=coaching, song_id=song, data_dir=data_dir)
+    console.print(f"Saved coaching: {output_path}")
+    console.print(f"Goal: {coaching.get('goal', '-')}")
+    for issue in coaching.get("top_issues", [])[:3]:
+        console.print(f"- {issue.get('title', '-')}")
+
+
+@app.command("playback")
+def playback(
+    song: str = typer.Option(..., "--song"),
+    segment: str = typer.Option("default", "--segment"),
+    mode: str = typer.Option("reference", "--mode"),
+    measures: str | None = typer.Option(None, "--measures"),
+    bpm: float | None = typer.Option(None, "--bpm"),
+    highlight: list[str] | None = typer.Option(None, "--highlight"),
+    output_port: str | None = typer.Option(None, "--output-port"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    result = playback_play(
+        source=mode,
+        song_id=song,
+        segment_id=segment,
+        measures=measures,
+        bpm=bpm,
+        highlight_pitches=highlight,
+        output_port=output_port,
+        data_dir=data_dir,
+    )
+    console.print(f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
 
 
 if __name__ == "__main__":

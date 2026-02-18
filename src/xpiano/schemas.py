@@ -258,6 +258,49 @@ LLM_OUTPUT_SCHEMA: dict[str, Any] = {
             },
             "additionalProperties": False,
         },
+        "tool_calls": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["position", "action"],
+                "properties": {
+                    "position": {
+                        "type": "string",
+                        "enum": [
+                            "after_issue_1",
+                            "after_issue_2",
+                            "after_issue_3",
+                            "before_drill_1",
+                            "after_drill_1",
+                            "before_drill_2",
+                            "after_drill_2",
+                            "summary_end",
+                        ],
+                    },
+                    "action": {
+                        "type": "object",
+                        "required": ["type", "source"],
+                        "properties": {
+                            "type": {"const": "playback"},
+                            "source": {"type": "string", "enum": ["reference", "attempt", "comparison"]},
+                            "measures": {
+                                "type": "object",
+                                "properties": {
+                                    "start": {"type": "integer"},
+                                    "end": {"type": "integer"},
+                                },
+                                "additionalProperties": False,
+                            },
+                            "bpm": {"type": "number", "minimum": 20, "maximum": 240},
+                            "highlight_pitches": {"type": "array", "items": {"type": "string"}},
+                            "delay_between_sec": {"type": "number"},
+                        },
+                        "additionalProperties": False,
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
     },
     "additionalProperties": False,
 }
