@@ -59,3 +59,5 @@ def test_record_reference_uses_meta_segment(
     assert out.exists()
     assert len(calls) == 1
     assert calls[0]["duration_sec"] > 0
+    assert calls[0]["beats_per_measure"] == 4
+    assert calls[0]["beat_unit"] == 4

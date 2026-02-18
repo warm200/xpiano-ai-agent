@@ -203,6 +203,7 @@ def record_reference(
         raise ValueError(f"segment not found: {segment_id}")
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
     measures = int(segment["end_measure"]) - int(segment["start_measure"]) + 1
     count_in_measures = int(segment.get("count_in_measures", 1))
@@ -214,6 +215,8 @@ def record_reference(
         count_in_beats=count_in_beats,
         bpm=bpm,
         output_port=output_port,
+        beats_per_measure=beats_per_measure,
+        beat_unit=beat_unit,
     )
     return save_reference(song_id=song_id, midi=midi, data_dir=data_dir)
 

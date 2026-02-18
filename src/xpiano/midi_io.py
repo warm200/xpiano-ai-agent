@@ -50,6 +50,8 @@ def record(
     count_in_beats: int,
     bpm: float,
     output_port: str | None = None,
+    beats_per_measure: int = 4,
+    beat_unit: int = 4,
 ) -> mido.MidiFile:
     if duration_sec <= 0:
         raise ValueError("duration_sec must be > 0")
@@ -64,8 +66,14 @@ def record(
     midi.tracks.append(track)
     tempo = mido.bpm2tempo(bpm)
     track.append(mido.MetaMessage("set_tempo", tempo=tempo, time=0))
-    track.append(mido.MetaMessage("time_signature",
-                 numerator=4, denominator=4, time=0))
+    track.append(
+        mido.MetaMessage(
+            "time_signature",
+            numerator=beats_per_measure,
+            denominator=beat_unit,
+            time=0,
+        )
+    )
 
     start = time.monotonic()
     last_msg_time = start

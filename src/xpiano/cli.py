@@ -174,6 +174,7 @@ def record(
     ref_path = reference.reference_midi_path(song_id=song, data_dir=data_dir)
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    beat_unit = int(meta["time_signature"].get("beat_unit", 4))
     bpm = float(meta["bpm"])
     measures = int(segment_cfg["end_measure"]) - \
         int(segment_cfg["start_measure"]) + 1
@@ -187,6 +188,8 @@ def record(
         count_in_beats=count_in_beats,
         bpm=bpm,
         output_port=output_port,
+        beats_per_measure=beats_per_measure,
+        beat_unit=beat_unit,
     )
     attempt_path = reference.save_attempt(
         song_id=song, midi=midi, data_dir=data_dir)
