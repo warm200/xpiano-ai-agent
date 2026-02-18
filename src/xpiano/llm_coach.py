@@ -201,6 +201,7 @@ async def stream_coaching(
     provider: LLMProvider,
     playback_engine: Any,
     on_text: Callable[[str], None] | None = None,
+    on_tool: Callable[[dict[str, Any]], None] | None = None,
 ) -> str:
     prompt = build_coaching_prompt(report)
     chunks: list[str] = []
@@ -216,5 +217,7 @@ async def stream_coaching(
         if event_type == "tool_use":
             payload = event.get("input", {})
             if payload:
+                if on_tool is not None:
+                    on_tool(payload)
                 playback_engine.play(**payload)
     return "".join(chunks)

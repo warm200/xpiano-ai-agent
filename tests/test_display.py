@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from xpiano.display import (render_low_match, render_piano_roll_diff,
-                            render_report, render_wait_step)
+                            render_playback_indicator, render_report,
+                            render_streaming_text, render_wait_step)
 
 
 def _report() -> dict:
@@ -41,3 +42,13 @@ def test_render_wait_step() -> None:
     text = render_wait_step(2, 3.0, ["C4", "E4"])
     assert "M2" in text
     assert "C4 E4" in text
+
+
+def test_render_streaming_text_passthrough() -> None:
+    assert render_streaming_text("hello") == "hello"
+
+
+def test_render_playback_indicator() -> None:
+    text = render_playback_indicator("reference", "2-3")
+    assert "reference" in text
+    assert "2-3" in text

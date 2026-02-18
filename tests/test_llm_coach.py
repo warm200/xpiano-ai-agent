@@ -152,14 +152,17 @@ def test_stream_coaching_calls_playback_engine() -> None:
     provider = FakeStreamProvider()
     playback = Playback()
     streamed: list[str] = []
+    tool_events: list[dict] = []
     text = asyncio.run(
         stream_coaching(
             report=_report(),
             provider=provider,
             playback_engine=playback,
             on_text=lambda chunk: streamed.append(chunk),
+            on_tool=lambda payload: tool_events.append(payload),
         )
     )
     assert playback.calls == 1
     assert "issue found" in text
     assert streamed == ["issue found"]
+    assert len(tool_events) == 1

@@ -68,3 +68,12 @@ def render_piano_roll_diff(report: dict[str, Any], max_measures: int = 3) -> str
 def render_wait_step(measure: int, beat: float, pitch_names: list[str]) -> str:
     expected = " ".join(pitch_names) if pitch_names else "(none)"
     return f"▶ M{measure} Beat{beat:.2f}: {expected}"
+
+
+def render_streaming_text(text: str) -> str:
+    return text
+
+
+def render_playback_indicator(source: str, measures: str | None = None) -> str:
+    scope = f" measures {measures}" if measures else ""
+    return f"▶ playback {source}{scope}"

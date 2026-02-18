@@ -11,7 +11,7 @@ from rich.table import Table
 from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
 from xpiano.display import (render_low_match, render_piano_roll_diff,
-                            render_report)
+                            render_playback_indicator, render_report)
 from xpiano.llm_coach import get_coaching, save_coaching, stream_coaching
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
@@ -39,6 +39,16 @@ def _segment_meta(meta: dict, segment_id: str) -> dict:
         if segment.get("segment_id") == segment_id:
             return segment
     raise typer.BadParameter(f"segment not found: {segment_id}")
+
+
+def _measures_str(value: object) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    start = value.get("start")
+    end = value.get("end")
+    if start is None or end is None:
+        return None
+    return f"{start}-{end}"
 
 
 @app.command("devices")
@@ -296,12 +306,18 @@ def coach(
                     delay_between=float(payload.get("delay_between_sec", 1.5)),
                 )
 
+        def _on_tool(payload: dict) -> None:
+            source = payload.get("source", "reference")
+            measures = _measures_str(payload.get("measures"))
+            console.print(f"\n{render_playback_indicator(source, measures)}")
+
         asyncio.run(
             stream_coaching(
                 report=report_payload,
                 provider=provider,
                 playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
                 on_text=lambda text: console.print(text, end=""),
+                on_tool=_on_tool,
             )
         )
         console.print()
