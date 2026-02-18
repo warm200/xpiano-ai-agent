@@ -142,6 +142,27 @@ def load_report(path: str | Path) -> dict[str, Any]:
     return payload
 
 
+def latest_valid_report_path(
+    song_id: str,
+    segment_id: str | None = None,
+    data_dir: str | Path | None = None,
+) -> Path:
+    paths = list_reports(song_id=song_id, data_dir=data_dir)
+    for path in reversed(paths):
+        try:
+            report = load_report(path)
+        except Exception:
+            continue
+        if segment_id is not None and report.get("segment_id") != segment_id:
+            continue
+        return path
+    if segment_id is None:
+        raise FileNotFoundError(f"no valid reports found for song: {song_id}")
+    raise FileNotFoundError(
+        f"no valid reports found for song: {song_id} segment: {segment_id}"
+    )
+
+
 def build_history(
     song_id: str,
     segment_id: str | None = None,

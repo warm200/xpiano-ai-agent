@@ -860,13 +860,39 @@ def test_report_command_without_reports_prints_message(xpiano_home: Path) -> Non
     assert "No report history." in result.stdout
 
 
-def test_report_command_invalid_report_schema_returns_error(xpiano_home: Path) -> None:
+def test_report_command_invalid_report_schema_prints_empty_history(xpiano_home: Path) -> None:
     reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     bad_payload = {"song_id": "twinkle"}
     (reports_dir / "20260101_120000.json").write_text(json.dumps(bad_payload), encoding="utf-8")
     result = runner.invoke(app, ["report", "--song", "twinkle"])
-    assert result.exit_code != 0
+    assert result.exit_code == 0
+    assert "No report history." in result.stdout
+
+
+def test_report_command_skips_invalid_latest_report(xpiano_home: Path) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    valid_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 0},
+            "match_rate": 0.8,
+            "top_problems": [],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(valid_payload), encoding="utf-8")
+    (reports_dir / "20260101_120100.json").write_text("{bad", encoding="utf-8")
+
+    result = runner.invoke(app, ["report", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "match_rate=0.80" in result.stdout
 
 
 def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
@@ -1552,13 +1578,48 @@ def test_coach_command_without_reports_prints_message(xpiano_home: Path) -> None
     assert "No report history." in result.stdout
 
 
-def test_coach_command_invalid_report_schema_returns_error(xpiano_home: Path) -> None:
+def test_coach_command_invalid_report_schema_prints_empty_history(xpiano_home: Path) -> None:
     reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
     bad_payload = {"song_id": "twinkle"}
     (reports_dir / "20260101_120000.json").write_text(json.dumps(bad_payload), encoding="utf-8")
     result = runner.invoke(app, ["coach", "--song", "twinkle"])
-    assert result.exit_code != 0
+    assert result.exit_code == 0
+    assert "No report history." in result.stdout
+
+
+def test_coach_command_skips_invalid_latest_report(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    valid_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 0},
+            "match_rate": 0.8,
+            "top_problems": [],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(valid_payload), encoding="utf-8")
+    (reports_dir / "20260101_120100.json").write_text("{bad", encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(ValueError("missing key")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+    )
+
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Saved coaching:" in result.stdout
 
 
 def test_coach_command_with_segment_filter(

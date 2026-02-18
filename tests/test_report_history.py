@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from xpiano.report import build_history
+from xpiano.report import build_history, latest_valid_report_path
 
 
 def _write_report(path: Path, match_rate: float, missing: int, extra: int, segment: str = "verse1") -> None:
@@ -46,6 +46,30 @@ def test_build_history_filters_and_limits(xpiano_home: Path) -> None:
         song_id="twinkle", segment_id=None, attempts=2, data_dir=xpiano_home)
     assert len(limited) == 2
     assert limited[0]["filename"] == "20260101_120100.json"
+
+
+def test_latest_valid_report_path_skips_invalid_latest(xpiano_home: Path) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, "verse1")
+    (reports / "20260101_120100.json").write_text("{bad", encoding="utf-8")
+
+    resolved = latest_valid_report_path(song_id="twinkle", data_dir=xpiano_home)
+    assert resolved.name == "20260101_120000.json"
+
+
+def test_latest_valid_report_path_filters_segment(xpiano_home: Path) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, "verse1")
+    _write_report(reports / "20260101_120100.json", 0.80, 2, 1, "verse2")
+
+    resolved = latest_valid_report_path(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+    )
+    assert resolved.name == "20260101_120000.json"
 
 
 def test_build_history_rejects_non_positive_attempts(xpiano_home: Path) -> None:

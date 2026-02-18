@@ -22,7 +22,8 @@ from xpiano.llm_coach import (fallback_output, get_coaching,
                               stream_coaching)
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
-from xpiano.report import build_history, build_report, load_report, save_report
+from xpiano.report import (build_history, build_report,
+                           latest_valid_report_path, load_report, save_report)
 from xpiano.wait_mode import run_wait_mode
 
 app = typer.Typer(help="XPiano CLI")
@@ -685,21 +686,20 @@ def report(
     config.ensure_config(data_dir=data_dir)
     if segment is None:
         try:
-            report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+            report_path = latest_valid_report_path(song_id=song, data_dir=data_dir)
         except FileNotFoundError:
             console.print("No report history.")
             return
     else:
-        rows = build_history(
-            song_id=song,
-            segment_id=segment,
-            attempts=1,
-            data_dir=data_dir,
-        )
-        if not rows:
+        try:
+            report_path = latest_valid_report_path(
+                song_id=song,
+                segment_id=segment,
+                data_dir=data_dir,
+            )
+        except FileNotFoundError:
             console.print("No report found for segment.")
             return
-        report_path = Path(rows[-1]["path"])
     try:
         payload = load_report(report_path)
     except ValueError as exc:
@@ -721,21 +721,20 @@ def coach(
     cfg = config.ensure_config(data_dir=data_dir)
     if segment is None:
         try:
-            report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+            report_path = latest_valid_report_path(song_id=song, data_dir=data_dir)
         except FileNotFoundError:
             console.print("No report history.")
             return
     else:
-        rows = build_history(
-            song_id=song,
-            segment_id=segment,
-            attempts=1,
-            data_dir=data_dir,
-        )
-        if not rows:
+        try:
+            report_path = latest_valid_report_path(
+                song_id=song,
+                segment_id=segment,
+                data_dir=data_dir,
+            )
+        except FileNotFoundError:
             console.print("No report found for segment.")
             return
-        report_path = Path(rows[-1]["path"])
     try:
         report_payload = load_report(report_path)
     except ValueError as exc:
