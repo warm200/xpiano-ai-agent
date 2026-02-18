@@ -117,6 +117,8 @@ def build_history(
     attempts: int = 5,
     data_dir: str | Path | None = None,
 ) -> list[dict[str, Any]]:
+    if attempts <= 0:
+        raise ValueError("attempts must be > 0")
     paths = list_reports(song_id=song_id, data_dir=data_dir)
     rows: list[dict[str, Any]] = []
     for path in paths:
@@ -141,6 +143,5 @@ def build_history(
             }
         )
     rows.sort(key=lambda item: item["filename"])
-    if attempts > 0:
-        rows = rows[-attempts:]
+    rows = rows[-attempts:]
     return rows

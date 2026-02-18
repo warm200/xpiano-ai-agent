@@ -46,3 +46,12 @@ def test_build_history_filters_and_limits(xpiano_home: Path) -> None:
         song_id="twinkle", segment_id=None, attempts=2, data_dir=xpiano_home)
     assert len(limited) == 2
     assert limited[0]["filename"] == "20260101_120100.json"
+
+
+def test_build_history_rejects_non_positive_attempts(xpiano_home: Path) -> None:
+    try:
+        _ = build_history(song_id="twinkle", attempts=0, data_dir=xpiano_home)
+    except ValueError as exc:
+        assert "attempts must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive attempts")
