@@ -89,6 +89,11 @@ def _validate_timing_meta(meta: dict) -> tuple[int, float]:
     return beats_per_measure, bpm
 
 
+def _validate_chord_window_ms(chord_window_ms: float) -> None:
+    if chord_window_ms < 0:
+        raise ValueError("invalid chord_window_ms: must be >= 0")
+
+
 def generate_events(
     ref: list[NoteEvent],
     attempt: list[NoteEvent],
@@ -105,6 +110,7 @@ def generate_events(
     short_ratio = float(tolerance.get("duration_short_ratio", 0.6))
     long_ratio = float(tolerance.get("duration_long_ratio", 1.5))
     chord_window_ms = float(tolerance.get("chord_window_ms", 50))
+    _validate_chord_window_ms(chord_window_ms)
 
     beats_per_measure, bpm = _validate_timing_meta(meta)
     start_measure = _segment_start_measure(meta, segment_id=segment_id)

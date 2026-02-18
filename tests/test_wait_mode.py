@@ -70,6 +70,17 @@ def test_build_pitch_sequence_rejects_non_positive_beats_per_measure() -> None:
         raise AssertionError("expected ValueError for invalid time signature")
 
 
+def test_build_pitch_sequence_rejects_negative_chord_window_ms() -> None:
+    meta = _meta()
+    meta["tolerance"]["chord_window_ms"] = -1
+    try:
+        _ = build_pitch_sequence([], meta)
+    except ValueError as exc:
+        assert "invalid chord_window_ms" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid chord_window_ms")
+
+
 def test_run_wait_mode_with_event_stream(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

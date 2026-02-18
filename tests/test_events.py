@@ -129,3 +129,18 @@ def test_generate_events_rejects_non_positive_beats_per_measure() -> None:
             alignment=alignment,
             meta=meta,
         )
+
+
+def test_generate_events_rejects_negative_chord_window_ms() -> None:
+    meta = _meta()
+    meta["tolerance"]["chord_window_ms"] = -1
+    ref = [_note(60, 0.0, dur_sec=1.0, name="C4")]
+    attempt = [_note(60, 0.07, dur_sec=1.0, name="C4")]
+    alignment = AlignmentResult(path=[(0, 0)], cost=0.07, method="per_pitch_dtw")
+    with pytest.raises(ValueError, match="invalid chord_window_ms"):
+        _ = generate_events(
+            ref=ref,
+            attempt=attempt,
+            alignment=alignment,
+            meta=meta,
+        )

@@ -41,6 +41,8 @@ def _segment_bounds(meta: dict, segment_id: str) -> tuple[int, int]:
 def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetStep]:
     tolerance = meta.get("tolerance", {})
     chord_window_ms = float(tolerance.get("chord_window_ms", 50))
+    if chord_window_ms < 0:
+        raise ValueError("invalid chord_window_ms: must be >= 0")
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     bpm = float(meta["bpm"])
     if beats_per_measure <= 0:
