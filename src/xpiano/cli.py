@@ -138,6 +138,17 @@ def _measures_str(value: object) -> str | None:
     return f"{start}-{end}"
 
 
+def _resolve_max_retries(cfg: dict) -> int:
+    raw_value = cfg.get("llm", {}).get("max_retries", 3)
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError):
+        return 3
+    if parsed <= 0:
+        return 3
+    return parsed
+
+
 @app.command("devices")
 def devices() -> None:
     entries = midi_io.list_devices()
@@ -391,7 +402,7 @@ def record(
             coaching = get_coaching(
                 report=report_data,
                 provider=provider,
-                max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
+                max_retries=_resolve_max_retries(cfg),
             )
         coaching_path = save_coaching(
             coaching=coaching, song_id=song, data_dir=data_dir)
@@ -563,7 +574,7 @@ def coach(
         coaching = get_coaching(
             report=report_payload,
             provider=provider,
-            max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
+            max_retries=_resolve_max_retries(cfg),
         )
     output_path = save_coaching(
         coaching=coaching, song_id=song, data_dir=data_dir)

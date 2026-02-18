@@ -1172,6 +1172,74 @@ def test_coach_command_with_mocked_provider(
     assert "Saved coaching:" in result.stdout
 
 
+def test_coach_command_defaults_invalid_max_retries_to_three(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / "20260101_120000.json"
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
+            "match_rate": 0.8,
+            "top_problems": ["M2 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    report_path.write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.config.ensure_config", lambda **kwargs: {"llm": {"max_retries": "bad"}})
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+    captured: dict[str, int] = {}
+    monkeypatch.setattr(
+        "xpiano.cli.get_coaching",
+        lambda report, provider, max_retries: (
+            captured.__setitem__("max_retries", max_retries) or {
+                "goal": "Fix bar 2",
+                "top_issues": [{"title": "Wrong pitch", "why": "finger slip", "evidence": ["M2 wrong_pitch x2"]}],
+                "drills": [
+                    {
+                        "name": "Slow loop",
+                        "minutes": 7,
+                        "bpm": 45,
+                        "how": ["Loop M2", "Count beats"],
+                        "reps": "5x",
+                        "focus_measures": "2",
+                    },
+                    {
+                        "name": "Connect bars",
+                        "minutes": 8,
+                        "bpm": 50,
+                        "how": ["Play M2-M3", "No pause"],
+                        "reps": "4x",
+                        "focus_measures": "2-3",
+                    },
+                ],
+                "pass_conditions": {
+                    "before_speed_up": ["No wrong notes", "Stable timing"],
+                    "speed_up_rule": "+5 BPM after 2 clean reps",
+                },
+                "next_recording": {"what_to_record": "M2-M3", "tips": ["Relax wrist", "Watch beat 1"]},
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+    )
+
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert captured["max_retries"] == 3
+
+
 def test_coach_command_without_reports_prints_message(xpiano_home: Path) -> None:
     _ = xpiano_home
     result = runner.invoke(app, ["coach", "--song", "twinkle"])
