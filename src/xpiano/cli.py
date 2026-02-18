@@ -97,6 +97,8 @@ def _require_song(value: str) -> str:
     cleaned = value.strip()
     if not cleaned:
         raise typer.BadParameter("song must be non-empty")
+    if "/" in cleaned or "\\" in cleaned:
+        raise typer.BadParameter("song must not contain path separators")
     return cleaned
 
 

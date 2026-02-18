@@ -489,6 +489,24 @@ def test_setup_rejects_empty_song() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_song_with_path_separator() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "foo/bar",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,
@@ -541,6 +559,14 @@ def test_import_command_trims_song_and_segment(sample_midi_path: Path, xpiano_ho
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     assert meta["song_id"] == "twinkle"
     assert meta["segments"][0]["segment_id"] == "verse1"
+
+
+def test_import_command_rejects_song_with_path_separator(sample_midi_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "foo/bar"],
+    )
+    assert result.exit_code != 0
 
 
 def test_import_command_rejects_empty_segment(sample_midi_path: Path) -> None:
