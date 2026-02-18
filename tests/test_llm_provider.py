@@ -300,6 +300,43 @@ def test_claude_provider_stream_with_tool_results_propagates_tool_errors(
         asyncio.run(_run(provider))
 
 
+def test_claude_provider_stream_with_tool_results_propagates_serialization_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeToolUseBlock:
+        type = "tool_use"
+        id = "toolu_123"
+        name = "playback_control"
+        input = {"source": "reference"}
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            return SimpleNamespace(content=[FakeToolUseBlock()])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("fallback stream should not run for serialization errors")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _run(provider: ClaudeProvider) -> None:
+        async for _ in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=[{"name": "playback_control", "parameters": {"type": "object"}}],
+            on_tool_use=lambda event: {"status": "played", "duration_sec": float("nan")},
+        ):
+            pass
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(ValueError, match="Out of range float values are not JSON compliant"):
+        asyncio.run(_run(provider))
+
+
 def test_claude_provider_stream_with_tool_results_stops_after_max_rounds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

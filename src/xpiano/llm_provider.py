@@ -178,7 +178,14 @@ class ClaudeProvider(LLMProvider):
                             tool_output = on_tool_use(tool_event)
                         except Exception as exc:
                             raise _ToolExecutionError from exc
-                        serialized = json.dumps(tool_output, ensure_ascii=False)
+                        try:
+                            serialized = json.dumps(
+                                tool_output,
+                                ensure_ascii=False,
+                                allow_nan=False,
+                            )
+                        except (TypeError, ValueError) as exc:
+                            raise _ToolExecutionError from exc
                         tool_results.append(
                             {
                                 "type": "tool_result",
