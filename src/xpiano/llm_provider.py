@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import anthropic
@@ -16,6 +17,17 @@ class LLMProvider(ABC):
     @abstractmethod
     def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
         raise NotImplementedError
+
+    async def stream_with_tool_results(
+        self,
+        prompt: str,
+        tools: list[dict] | None,
+        on_tool_use: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> AsyncIterator[dict[str, Any]]:
+        async for event in self.stream(prompt=prompt, tools=tools):
+            if event.get("type") == "tool_use":
+                on_tool_use(event)
+            yield event
 
 
 def _extract_text(content: Any) -> str:
@@ -104,6 +116,77 @@ class ClaudeProvider(LLMProvider):
         except Exception:
             # Degrade gracefully to non-streamed text.
             yield {"type": "text_delta", "text": self.generate(prompt)}
+
+    async def stream_with_tool_results(
+        self,
+        prompt: str,
+        tools: list[dict] | None,
+        on_tool_use: Callable[[dict[str, Any]], dict[str, Any]],
+    ) -> AsyncIterator[dict[str, Any]]:
+        stream_tools = _normalize_tools(tools)
+        messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+        max_tool_rounds = 8
+        rounds = 0
+
+        while rounds < max_tool_rounds:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=messages,
+                tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
+            )
+            assistant_content: list[dict[str, Any]] = []
+            tool_results: list[dict[str, Any]] = []
+
+            for block in response.content:
+                block_type = getattr(block, "type", None)
+                if block_type == "text":
+                    text = str(getattr(block, "text", ""))
+                    if text:
+                        yield {"type": "text_delta", "text": text}
+                    assistant_content.append({"type": "text", "text": text})
+                    continue
+                if block_type == "tool_use":
+                    tool_id = str(getattr(block, "id", ""))
+                    payload = dict(getattr(block, "input", {}) or {})
+                    tool_event = {
+                        "type": "tool_use",
+                        "id": tool_id,
+                        "name": getattr(block, "name", None),
+                        "input": payload,
+                    }
+                    yield tool_event
+                    assistant_content.append(
+                        {
+                            "type": "tool_use",
+                            "id": tool_id,
+                            "name": getattr(block, "name", None),
+                            "input": payload,
+                        }
+                    )
+                    tool_output = on_tool_use(tool_event)
+                    serialized = json.dumps(tool_output, ensure_ascii=False)
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_id,
+                            "content": serialized,
+                        }
+                    )
+
+            if assistant_content:
+                messages.append({"role": "assistant", "content": assistant_content})
+            if not tool_results:
+                break
+            messages.append({"role": "user", "content": tool_results})
+            rounds += 1
+
+        if rounds >= max_tool_rounds:
+            yield {
+                "type": "text_delta",
+                "text": "\n[stream terminated: too many tool rounds]",
+            }
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:

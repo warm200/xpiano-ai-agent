@@ -150,6 +150,10 @@ def _parse_and_validate(raw: str) -> tuple[dict[str, Any] | None, list[str]]:
     return payload, []
 
 
+def parse_coaching_text(raw: str) -> tuple[dict[str, Any] | None, list[str]]:
+    return _parse_and_validate(raw)
+
+
 def _build_correction_prompt(previous_raw: str, errors: list[str]) -> str:
     return (
         "Your previous output failed JSON schema validation.\n"
@@ -279,7 +283,39 @@ async def stream_coaching(
 ) -> str:
     prompt = build_coaching_prompt(report)
     chunks: list[str] = []
-    async for event in provider.stream(prompt=prompt, tools=[PLAYBACK_TOOL_SCHEMA]):
+
+    def _playback_result_payload(result: Any) -> dict[str, Any]:
+        if isinstance(result, dict):
+            return dict(result)
+        payload: dict[str, Any] = {}
+        status = getattr(result, "status", None)
+        if status is not None:
+            payload["status"] = str(status)
+        duration_sec = getattr(result, "duration_sec", None)
+        if duration_sec is not None:
+            duration_value = float(duration_sec)
+            if not math.isfinite(duration_value) or duration_value < 0:
+                raise ValueError("invalid playback result duration_sec")
+            payload["duration_sec"] = duration_value
+        if not payload:
+            payload["status"] = "ok"
+        return payload
+
+    def _on_tool_use(event: dict[str, Any]) -> dict[str, Any]:
+        payload = event.get("input", {})
+        if not payload:
+            raise ValueError("invalid playback tool payload: missing input")
+        validated_payload = _validate_playback_payload(payload)
+        if on_tool is not None:
+            on_tool(validated_payload)
+        playback_result = playback_engine.play(**validated_payload)
+        return _playback_result_payload(playback_result)
+
+    async for event in provider.stream_with_tool_results(
+        prompt=prompt,
+        tools=[PLAYBACK_TOOL_SCHEMA],
+        on_tool_use=_on_tool_use,
+    ):
         event_type = event.get("type")
         if event_type == "text_delta":
             text = str(event.get("text", ""))
@@ -287,14 +323,4 @@ async def stream_coaching(
                 chunks.append(text)
                 if on_text is not None:
                     on_text(text)
-            continue
-        if event_type == "tool_use":
-            payload = event.get("input", {})
-            if payload:
-                validated_payload = _validate_playback_payload(payload)
-                if on_tool is not None:
-                    on_tool(validated_payload)
-                playback_engine.play(**validated_payload)
-            else:
-                raise ValueError("invalid playback tool payload: missing input")
     return "".join(chunks)

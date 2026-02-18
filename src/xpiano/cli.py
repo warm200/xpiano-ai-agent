@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from pathlib import Path
 from typing import Literal
 
+import mido
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -12,8 +14,10 @@ from rich.table import Table
 from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
 from xpiano.display import (render_low_match, render_piano_roll_diff,
-                            render_playback_indicator, render_report)
-from xpiano.llm_coach import (fallback_output, get_coaching, save_coaching,
+                            render_playback_indicator, render_report,
+                            render_streaming_text)
+from xpiano.llm_coach import (fallback_output, get_coaching,
+                              parse_coaching_text, save_coaching,
                               stream_coaching)
 from xpiano.llm_provider import create_provider
 from xpiano.playback import play as playback_play
@@ -147,6 +151,90 @@ def _resolve_max_retries(cfg: dict) -> int:
     if parsed <= 0:
         return 3
     return parsed
+
+
+class _PlaybackAdapter:
+    def __init__(
+        self,
+        song_id: str,
+        segment_id: str,
+        data_dir: Path | None,
+        output_port: str | None = None,
+    ):
+        self.song_id = song_id
+        self.segment_id = segment_id
+        self.data_dir = data_dir
+        self.output_port = output_port
+
+    def play(self, **payload):
+        measures_obj = payload.get("measures")
+        measures = None
+        if isinstance(measures_obj, dict):
+            start = measures_obj.get("start")
+            end = measures_obj.get("end")
+            if start and end:
+                measures = f"{start}-{end}"
+        return playback_play(
+            source=payload.get("source", "reference"),
+            song_id=self.song_id,
+            segment_id=self.segment_id,
+            measures=measures,
+            bpm=payload.get("bpm"),
+            highlight_pitches=payload.get("highlight_pitches"),
+            data_dir=self.data_dir,
+            delay_between=float(payload.get("delay_between_sec", 1.5)),
+            output_port=self.output_port,
+        )
+
+
+def _stream_coaching_text(
+    report_payload: dict,
+    provider,
+    song_id: str,
+    segment_id: str,
+    data_dir: Path | None,
+    output_port: str | None = None,
+) -> str:
+    adapter = _PlaybackAdapter(
+        song_id=song_id,
+        segment_id=segment_id,
+        data_dir=data_dir,
+        output_port=output_port,
+    )
+
+    def _on_tool(payload: dict) -> None:
+        source = payload.get("source", "reference")
+        measures = _measures_str(payload.get("measures"))
+        console.print(f"\n{render_playback_indicator(source, measures)}")
+
+    text = asyncio.run(
+        stream_coaching(
+            report=report_payload,
+            provider=provider,
+            playback_engine=adapter,
+            on_text=lambda chunk: console.print(render_streaming_text(chunk), end=""),
+            on_tool=_on_tool,
+        )
+    )
+    console.print()
+    return str(text)
+
+
+def _play_attempt_file(
+    attempt_path: str,
+    output_port: str | None,
+    bpm: float | None,
+) -> tuple[str, float]:
+    midi = mido.MidiFile(attempt_path)
+    result = midi_io.play_midi(
+        port=output_port,
+        midi=midi,
+        bpm=bpm,
+        start_sec=0.0,
+        end_sec=None,
+        highlight_pitches=None,
+    )
+    return result.status, result.duration_sec
 
 
 @app.command("devices")
@@ -403,11 +491,25 @@ def record(
         if provider is None:
             coaching = fallback_output(report_data)
         else:
-            coaching = get_coaching(
-                report=report_data,
-                provider=provider,
-                max_retries=_resolve_max_retries(cfg),
-            )
+            console.print("Streaming coaching:")
+            try:
+                streamed_text = _stream_coaching_text(
+                    report_payload=report_data,
+                    provider=provider,
+                    song_id=song,
+                    segment_id=segment,
+                    data_dir=data_dir,
+                    output_port=output_port,
+                )
+            except (ValueError, OSError) as exc:
+                raise typer.BadParameter(str(exc)) from exc
+            coaching, stream_errors = parse_coaching_text(streamed_text)
+            if coaching is None:
+                console.print(
+                    "Streaming output invalid, using fallback coaching: "
+                    + "; ".join(stream_errors)
+                )
+                coaching = fallback_output(report_data)
         coaching_path = save_coaching(
             coaching=coaching, song_id=song, data_dir=data_dir)
         console.print(f"Saved coaching: {coaching_path}")
@@ -525,50 +627,16 @@ def coach(
             return
 
         segment_id = str(report_payload.get("segment_id", "default"))
-
-        class _PlaybackAdapter:
-            def __init__(self, song_id: str, segment_id: str, data_dir: Path | None):
-                self.song_id = song_id
-                self.segment_id = segment_id
-                self.data_dir = data_dir
-
-            def play(self, **payload):
-                measures_obj = payload.get("measures")
-                measures = None
-                if isinstance(measures_obj, dict):
-                    start = measures_obj.get("start")
-                    end = measures_obj.get("end")
-                    if start and end:
-                        measures = f"{start}-{end}"
-                return playback_play(
-                    source=payload.get("source", "reference"),
-                    song_id=self.song_id,
-                    segment_id=self.segment_id,
-                    measures=measures,
-                    bpm=payload.get("bpm"),
-                    highlight_pitches=payload.get("highlight_pitches"),
-                    data_dir=self.data_dir,
-                    delay_between=float(payload.get("delay_between_sec", 1.5)),
-                )
-
-        def _on_tool(payload: dict) -> None:
-            source = payload.get("source", "reference")
-            measures = _measures_str(payload.get("measures"))
-            console.print(f"\n{render_playback_indicator(source, measures)}")
-
         try:
-            asyncio.run(
-                stream_coaching(
-                    report=report_payload,
-                    provider=provider,
-                    playback_engine=_PlaybackAdapter(song, segment_id, data_dir),
-                    on_text=lambda text: console.print(text, end=""),
-                    on_tool=_on_tool,
-                )
+            _ = _stream_coaching_text(
+                report_payload=report_payload,
+                provider=provider,
+                song_id=song,
+                segment_id=segment_id,
+                data_dir=data_dir,
             )
         except (ValueError, OSError) as exc:
             raise typer.BadParameter(str(exc)) from exc
-        console.print()
         console.print("Streaming coaching finished.")
         return
 
@@ -688,10 +756,18 @@ def compare(
     song: str = typer.Option(..., "--song"),
     segment: str | None = typer.Option(None, "--segment"),
     attempts: str = typer.Option("2", "--attempts"),
+    playback: bool = typer.Option(False, "--playback"),
+    bpm: float | None = typer.Option(None, "--bpm"),
+    output_port: str | None = typer.Option(None, "--output-port"),
+    delay_between: float = typer.Option(1.0, "--delay-between"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     song = _require_song(song)
     segment = _require_optional_segment(segment)
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise typer.BadParameter("bpm must be in range 20..240")
+    if delay_between < 0:
+        raise typer.BadParameter("delay-between must be >= 0")
     attempt_count = _parse_attempts(attempts)
     rows = build_history(
         song_id=song,
@@ -721,6 +797,59 @@ def compare(
     else:
         verdict = "regressed"
     console.print(f"trend: {verdict}")
+
+    if not playback:
+        return
+
+    prev_report_path = prev.get("path")
+    curr_report_path = curr.get("path")
+    if not prev_report_path or not curr_report_path:
+        console.print("Playback skipped: report history does not include file paths.")
+        return
+    try:
+        prev_report = load_report(Path(str(prev_report_path)))
+        curr_report = load_report(Path(str(curr_report_path)))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    prev_attempt_path = str(prev_report.get("inputs", {}).get("attempt_mid", "")).strip()
+    curr_attempt_path = str(curr_report.get("inputs", {}).get("attempt_mid", "")).strip()
+    if not prev_attempt_path or not curr_attempt_path:
+        console.print("Playback skipped: missing attempt path in report inputs.")
+        return
+
+    prev_attempt = Path(prev_attempt_path)
+    curr_attempt = Path(curr_attempt_path)
+    if not prev_attempt.exists() or not curr_attempt.exists():
+        console.print("Playback skipped: attempt MIDI file not found.")
+        return
+
+    try:
+        console.print("▶ playback before attempt")
+        before_status, before_duration = _play_attempt_file(
+            attempt_path=str(prev_attempt),
+            output_port=output_port,
+            bpm=bpm,
+        )
+        if before_status == "no_device":
+            console.print("Playback skipped: no MIDI output device.")
+            return
+        if delay_between > 0:
+            time.sleep(delay_between)
+        console.print("▶ playback latest attempt")
+        latest_status, latest_duration = _play_attempt_file(
+            attempt_path=str(curr_attempt),
+            output_port=output_port,
+            bpm=bpm,
+        )
+    except (OSError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    console.print(
+        "Playback compare: "
+        f"before={before_status} ({before_duration:.2f}s), "
+        f"latest={latest_status} ({latest_duration:.2f}s)"
+    )
 
 
 if __name__ == "__main__":

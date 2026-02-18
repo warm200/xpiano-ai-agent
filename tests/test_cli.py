@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 import xpiano.cli as cli_module
 from xpiano.analysis import AnalysisResult
 from xpiano.cli import app
+from xpiano.llm_provider import LLMProvider
 from xpiano.models import AlignmentResult, AnalysisEvent, PlayResult
 from xpiano.wait_mode import WaitModeResult
 
@@ -897,36 +898,40 @@ def test_record_full_tier_saves_coaching(
     monkeypatch.setattr("xpiano.cli.midi_io.record",
                         lambda **_: _recorded_midi())
     monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
-    monkeypatch.setattr(
-        "xpiano.cli.get_coaching",
-        lambda **kwargs: {
-            "goal": "Fix bar 2",
-            "top_issues": [{"title": "Wrong pitch", "why": "finger slip", "evidence": ["M2 wrong_pitch x2"]}],
-            "drills": [
-                {
-                    "name": "Slow loop",
-                    "minutes": 7,
-                    "bpm": 45,
-                    "how": ["Loop M2", "Count beats"],
-                    "reps": "5x",
-                    "focus_measures": "2",
+
+    async def _fake_stream(**kwargs):
+        _ = kwargs
+        return json.dumps(
+            {
+                "goal": "Fix bar 2",
+                "top_issues": [{"title": "Wrong pitch", "why": "finger slip", "evidence": ["M2 wrong_pitch x2"]}],
+                "drills": [
+                    {
+                        "name": "Slow loop",
+                        "minutes": 7,
+                        "bpm": 45,
+                        "how": ["Loop M2", "Count beats"],
+                        "reps": "5x",
+                        "focus_measures": "2",
+                    },
+                    {
+                        "name": "Connect bars",
+                        "minutes": 8,
+                        "bpm": 50,
+                        "how": ["Play M2-M3", "No pause"],
+                        "reps": "4x",
+                        "focus_measures": "2-3",
+                    },
+                ],
+                "pass_conditions": {
+                    "before_speed_up": ["No wrong notes", "Stable timing"],
+                    "speed_up_rule": "+5 BPM after 2 clean reps",
                 },
-                {
-                    "name": "Connect bars",
-                    "minutes": 8,
-                    "bpm": 50,
-                    "how": ["Play M2-M3", "No pause"],
-                    "reps": "4x",
-                    "focus_measures": "2-3",
-                },
-            ],
-            "pass_conditions": {
-                "before_speed_up": ["No wrong notes", "Stable timing"],
-                "speed_up_rule": "+5 BPM after 2 clean reps",
-            },
-            "next_recording": {"what_to_record": "M2-M3", "tips": ["Relax wrist", "Watch beat 1"]},
-        },
-    )
+                "next_recording": {"what_to_record": "M2-M3", "tips": ["Relax wrist", "Watch beat 1"]},
+            }
+        )
+
+    monkeypatch.setattr("xpiano.cli.stream_coaching", _fake_stream)
     monkeypatch.setattr(
         "xpiano.cli.save_coaching",
         lambda coaching, song_id, data_dir=None: Path(
@@ -960,6 +965,147 @@ def test_record_full_tier_falls_back_when_provider_unavailable(
     assert record_result.exit_code == 0
     assert "Provider unavailable" in record_result.stdout
     assert "Saved coaching:" in record_result.stdout
+
+
+def test_record_full_tier_falls_back_when_stream_output_invalid(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+
+    async def _fake_stream(**kwargs):
+        _ = kwargs
+        return "not json"
+
+    monkeypatch.setattr("xpiano.cli.stream_coaching", _fake_stream)
+    monkeypatch.setattr(
+        "xpiano.cli.fallback_output",
+        lambda report: {
+            "goal": "fallback",
+            "top_issues": [{"title": "issue", "why": "why", "evidence": ["ev"]}],
+            "drills": [
+                {
+                    "name": "slow",
+                    "minutes": 7,
+                    "bpm": 40,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1",
+                },
+                {
+                    "name": "chunk",
+                    "minutes": 8,
+                    "bpm": 45,
+                    "how": ["a", "b"],
+                    "reps": "5",
+                    "focus_measures": "1-2",
+                },
+            ],
+            "pass_conditions": {
+                "before_speed_up": ["x", "y"],
+                "speed_up_rule": "+5",
+            },
+            "next_recording": {
+                "what_to_record": "same",
+                "tips": ["t1", "t2"],
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fallback_stream_coaching.json"),
+    )
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Streaming output invalid" in record_result.stdout
+    assert "Saved coaching:" in record_result.stdout
+
+
+def test_record_full_tier_streaming_triggers_playback(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+
+    class _StreamProvider(LLMProvider):
+        def generate(self, prompt: str, output_schema: dict | None = None) -> str:
+            _ = prompt, output_schema
+            return "{}"
+
+        async def stream(self, prompt: str, tools: list[dict] | None = None):
+            _ = prompt, tools
+            yield {
+                "type": "tool_use",
+                "input": {
+                    "source": "attempt",
+                    "measures": {"start": 1, "end": 1},
+                    "bpm": 45,
+                },
+            }
+            yield {
+                "type": "text_delta",
+                "text": json.dumps(
+                    {
+                        "goal": "Fix bar 1",
+                        "top_issues": [{"title": "Wrong pitch", "why": "slip", "evidence": ["M1 wrong_pitch x1"]}],
+                        "drills": [
+                            {
+                                "name": "Slow loop",
+                                "minutes": 7,
+                                "bpm": 40,
+                                "how": ["Loop M1", "Count"],
+                                "reps": "5x",
+                                "focus_measures": "1",
+                            },
+                            {
+                                "name": "Connect",
+                                "minutes": 8,
+                                "bpm": 45,
+                                "how": ["M1-M2", "No pause"],
+                                "reps": "4x",
+                                "focus_measures": "1-2",
+                            },
+                        ],
+                        "pass_conditions": {
+                            "before_speed_up": ["No wrong notes", "Stable timing"],
+                            "speed_up_rule": "+5 BPM after 2 clean reps",
+                        },
+                        "next_recording": {"what_to_record": "M1-M2", "tips": ["Relax", "Steady beat"]},
+                    }
+                ),
+            }
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: _StreamProvider())
+    playback_calls: list[dict] = []
+
+    def _fake_playback(**kwargs):
+        playback_calls.append(kwargs)
+        return PlayResult(status="played", duration_sec=1.2)
+
+    monkeypatch.setattr("xpiano.cli.playback_play", _fake_playback)
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/streaming_coaching.json"),
+    )
+
+    record_result = runner.invoke(app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Streaming coaching:" in record_result.stdout
+    assert "Saved coaching:" in record_result.stdout
+    assert playback_calls
+    assert playback_calls[0]["source"] == "attempt"
+    assert playback_calls[0]["measures"] == "1-1"
+    assert playback_calls[0]["bpm"] == 45
 
 
 def test_record_too_low_skips_piano_roll_diff(
@@ -1640,6 +1786,70 @@ def test_history_and_compare_commands(monkeypatch) -> None:
     assert compare_result.exit_code == 0
     assert "match_rate: 0.50 -> 0.80 (+0.30)" in compare_result.stdout
     assert "trend: improved" in compare_result.stdout
+
+
+def test_compare_with_playback_replays_before_and_latest(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prev_report = tmp_path / "prev_report.json"
+    curr_report = tmp_path / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    prev_attempt = tmp_path / "prev.mid"
+    curr_attempt = tmp_path / "curr.mid"
+    prev_attempt.write_bytes(b"prev")
+    curr_attempt.write_bytes(b"curr")
+
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {
+            "inputs": {
+                "attempt_mid": str(prev_attempt if "prev_report" in str(path) else curr_attempt)
+            }
+        },
+    )
+    monkeypatch.setattr("xpiano.cli.mido.MidiFile", lambda path: f"midi::{Path(path).name}")
+    monkeypatch.setattr("xpiano.cli.time.sleep", lambda seconds: None)
+    play_calls: list[dict] = []
+
+    def _fake_play_midi(**kwargs):
+        play_calls.append(kwargs)
+        return PlayResult(status="played", duration_sec=1.0)
+
+    monkeypatch.setattr("xpiano.cli.midi_io.play_midi", _fake_play_midi)
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback", "--delay-between", "0"],
+    )
+    assert result.exit_code == 0
+    assert len(play_calls) == 2
+    assert str(play_calls[0]["midi"]).endswith("prev.mid")
+    assert str(play_calls[1]["midi"]).endswith("curr.mid")
+    assert "Playback compare:" in result.stdout
 
 
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:

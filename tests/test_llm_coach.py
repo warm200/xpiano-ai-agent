@@ -9,6 +9,7 @@ from xpiano.llm_coach import (_validate_playback_payload, build_coaching_prompt,
                               fallback_output, get_coaching, save_coaching,
                               stream_coaching)
 from xpiano.llm_provider import LLMProvider
+from xpiano.models import PlayResult
 from xpiano.schemas import validate
 
 
@@ -67,6 +68,44 @@ class FakeInvalidToolProvider(LLMProvider):
                 "source": "bad",
             },
         }
+
+
+class FakeToolLoopProvider(LLMProvider):
+    def __init__(self):
+        self.tool_results: list[dict[str, Any]] = []
+
+    def generate(self, prompt: str, output_schema: dict | None = None) -> str:
+        _ = prompt
+        _ = output_schema
+        return "{}"
+
+    async def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
+        _ = prompt
+        _ = tools
+        if False:
+            yield {"type": "text_delta", "text": ""}
+
+    async def stream_with_tool_results(
+        self,
+        prompt: str,
+        tools: list[dict] | None,
+        on_tool_use,
+    ) -> AsyncIterator[dict[str, Any]]:
+        _ = prompt
+        _ = tools
+        result = on_tool_use(
+            {
+                "type": "tool_use",
+                "id": "toolu_123",
+                "input": {
+                    "source": "comparison",
+                    "measures": {"start": 2, "end": 2},
+                    "delay_between_sec": 0.4,
+                },
+            }
+        )
+        self.tool_results.append(result)
+        yield {"type": "text_delta", "text": "done"}
 
 
 def _report() -> dict[str, Any]:
@@ -237,6 +276,25 @@ def test_stream_coaching_rejects_invalid_tool_payload() -> None:
     else:
         raise AssertionError("expected ValueError for invalid tool payload")
     assert playback.calls == 0
+
+
+def test_stream_coaching_returns_playback_result_to_provider() -> None:
+    class Playback:
+        def play(self, **kwargs):
+            _ = kwargs
+            return PlayResult(status="played", duration_sec=2.3)
+
+    provider = FakeToolLoopProvider()
+    playback = Playback()
+    text = asyncio.run(
+        stream_coaching(
+            report=_report(),
+            provider=provider,
+            playback_engine=playback,
+        )
+    )
+    assert text == "done"
+    assert provider.tool_results == [{"status": "played", "duration_sec": 2.3}]
 
 
 def test_validate_playback_payload_rejects_nan_bpm() -> None:
