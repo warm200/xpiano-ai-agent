@@ -183,3 +183,18 @@ def test_play_rejects_measure_outside_segment(xpiano_home: Path) -> None:
             measures="1-2",
             data_dir=xpiano_home,
         )
+
+
+def test_play_rejects_invalid_highlight_pitch(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    save_meta(song_id="twinkle", meta=_meta())
+    with pytest.raises(ValueError, match="invalid highlight pitches"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            highlight_pitches=["H9"],
+            data_dir=xpiano_home,
+        )

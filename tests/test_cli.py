@@ -605,6 +605,19 @@ def test_playback_command_rejects_invalid_mode() -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_invalid_highlight_returns_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise ValueError("invalid highlight pitches: H9")
+
+    monkeypatch.setattr("xpiano.cli.playback_play", _raise)
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference", "--highlight", "H9"],
+    )
+    assert result.exit_code != 0
+
+
 def test_wait_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.run_wait_mode",

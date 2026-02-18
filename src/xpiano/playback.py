@@ -85,11 +85,16 @@ def _pitch_names_to_numbers(values: list[str] | None) -> set[int]:
     if not values:
         return set()
     out: set[int] = set()
+    invalid: list[str] = []
     for value in values:
         try:
-            out.add(int(pretty_midi.note_name_to_number(value)))
+            out.add(int(pretty_midi.note_name_to_number(value.strip())))
         except Exception:
-            continue
+            invalid.append(value)
+    if invalid:
+        raise ValueError(
+            "invalid highlight pitches: " + ", ".join(invalid)
+        )
     return out
 
 
