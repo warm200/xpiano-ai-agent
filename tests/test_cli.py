@@ -263,6 +263,39 @@ def test_setup_preserves_existing_time_signature_when_omitted(xpiano_home: Path)
     assert meta["time_signature"]["beat_unit"] == 4
 
 
+def test_setup_preserves_existing_bpm_when_omitted(xpiano_home: Path) -> None:
+    first = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "88",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert first.exit_code == 0
+
+    second = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+        ],
+    )
+    assert second.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert meta["bpm"] == 88.0
+
+
 def test_setup_rejects_invalid_measure_range() -> None:
     result = runner.invoke(
         app,

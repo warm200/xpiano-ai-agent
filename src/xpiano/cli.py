@@ -136,7 +136,7 @@ def devices() -> None:
 def setup(
     song: str = typer.Option(..., "--song"),
     segment: str = typer.Option("default", "--segment"),
-    bpm: float = typer.Option(..., "--bpm"),
+    bpm: float | None = typer.Option(None, "--bpm"),
     time_sig: str | None = typer.Option(None, "--time-sig"),
     measures: str | None = typer.Option(None, "--measures"),
     count_in: int | None = typer.Option(None, "--count-in"),
@@ -145,7 +145,7 @@ def setup(
 ) -> None:
     song = _require_song(song)
     segment = _require_segment(segment)
-    if bpm <= 0:
+    if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
     if split_pitch is not None and (split_pitch < 0 or split_pitch > 127):
         raise typer.BadParameter("split-pitch must be in range 0..127")
@@ -159,7 +159,7 @@ def setup(
         meta = {
             "song_id": song,
             "time_signature": {"beats_per_measure": default_beats, "beat_unit": default_unit},
-            "bpm": bpm,
+            "bpm": float(bpm) if bpm is not None else 120.0,
             "segments": [],
             "hand_split": {"split_pitch": 60},
             "tolerance": config.load_config(data_dir=data_dir)["tolerance"],
@@ -192,10 +192,11 @@ def setup(
         beat_unit = int(meta.get("time_signature", {}).get("beat_unit", 4))
     else:
         beats_per_measure, beat_unit = parsed_time_sig
+    resolved_bpm = float(meta.get("bpm", 120.0)) if bpm is None else float(bpm)
     meta["song_id"] = song
     meta["time_signature"] = {
         "beats_per_measure": beats_per_measure, "beat_unit": beat_unit}
-    meta["bpm"] = bpm
+    meta["bpm"] = resolved_bpm
     meta["hand_split"] = {"split_pitch": resolved_split_pitch}
     segments = [s for s in meta.get(
         "segments", []) if s.get("segment_id") != segment]
