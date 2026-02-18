@@ -48,6 +48,28 @@ def test_build_pitch_sequence_groups_chords() -> None:
     assert steps[1].pitches == {62}
 
 
+def test_build_pitch_sequence_rejects_non_positive_bpm() -> None:
+    meta = _meta()
+    meta["bpm"] = 0
+    try:
+        _ = build_pitch_sequence([], meta)
+    except ValueError as exc:
+        assert "invalid bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive bpm")
+
+
+def test_build_pitch_sequence_rejects_non_positive_beats_per_measure() -> None:
+    meta = _meta()
+    meta["time_signature"]["beats_per_measure"] = 0
+    try:
+        _ = build_pitch_sequence([], meta)
+    except ValueError as exc:
+        assert "beats_per_measure must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid time signature")
+
+
 def test_run_wait_mode_with_event_stream(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)
@@ -96,6 +118,31 @@ def test_run_wait_mode_filters_by_segment(xpiano_home: Path) -> None:
     )
     assert result.total_steps == 1
     assert result.completed == 1
+
+
+def test_run_wait_mode_rejects_non_positive_bpm_override(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    notes = [
+        _note(60, 0.0, "C4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            bpm=0,
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "invalid bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive bpm override")
 
 
 def test_run_wait_mode_rejects_invalid_segment_range(xpiano_home: Path) -> None:

@@ -43,6 +43,10 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
     chord_window_ms = float(tolerance.get("chord_window_ms", 50))
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     bpm = float(meta["bpm"])
+    if beats_per_measure <= 0:
+        raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
     beat_sec = 60.0 / bpm
     window_sec = chord_window_ms / 1000.0
 
