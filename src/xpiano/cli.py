@@ -260,9 +260,12 @@ def record(
 ) -> None:
     segment = _require_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
-    meta = reference.load_meta(song_id=song, data_dir=data_dir)
+    try:
+        meta = reference.load_meta(song_id=song, data_dir=data_dir)
+        ref_path = reference.reference_midi_path(song_id=song, data_dir=data_dir)
+    except (FileNotFoundError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     segment_cfg = _segment_meta(meta, segment_id=segment)
-    ref_path = reference.reference_midi_path(song_id=song, data_dir=data_dir)
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     beat_unit = int(meta["time_signature"].get("beat_unit", 4))
@@ -352,13 +355,16 @@ def record_ref(
 ) -> None:
     segment = _require_segment(segment)
     config.ensure_config(data_dir=data_dir)
-    path = reference.record_reference(
-        song_id=song,
-        segment_id=segment,
-        port=input_port,
-        output_port=output_port,
-        data_dir=data_dir,
-    )
+    try:
+        path = reference.record_reference(
+            song_id=song,
+            segment_id=segment,
+            port=input_port,
+            output_port=output_port,
+            data_dir=data_dir,
+        )
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved reference MIDI: {path}")
 
 
@@ -371,7 +377,11 @@ def report(
     segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
     if segment is None:
-        report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+        try:
+            report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+        except FileNotFoundError:
+            console.print("No report history.")
+            return
     else:
         rows = build_history(
             song_id=song,
@@ -400,7 +410,11 @@ def coach(
     segment = _require_optional_segment(segment)
     cfg = config.ensure_config(data_dir=data_dir)
     if segment is None:
-        report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+        try:
+            report_path = reference.latest_report_path(song_id=song, data_dir=data_dir)
+        except FileNotFoundError:
+            console.print("No report history.")
+            return
     else:
         rows = build_history(
             song_id=song,
@@ -516,7 +530,7 @@ def playback(
             output_port=output_port,
             data_dir=data_dir,
         )
-    except ValueError as exc:
+    except (FileNotFoundError, ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
@@ -533,13 +547,16 @@ def wait(
     segment = _require_segment(segment)
     if bpm is not None and bpm <= 0:
         raise typer.BadParameter("bpm must be > 0")
-    result = run_wait_mode(
-        song_id=song,
-        segment_id=segment,
-        bpm=bpm,
-        port=input_port,
-        data_dir=data_dir,
-    )
+    try:
+        result = run_wait_mode(
+            song_id=song,
+            segment_id=segment,
+            bpm=bpm,
+            port=input_port,
+            data_dir=data_dir,
+        )
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Wait mode: completed={result.completed}/{result.total_steps} errors={result.errors}"
     )

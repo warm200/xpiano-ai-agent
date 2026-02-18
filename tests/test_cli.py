@@ -387,6 +387,12 @@ def test_record_and_report_commands(
     assert "match_rate=" in report_result.stdout
 
 
+def test_record_command_requires_setup_and_reference(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert result.exit_code != 0
+
+
 def test_record_passes_segment_context_to_analyze(
     sample_midi_path: Path,
     monkeypatch,
@@ -441,6 +447,13 @@ def test_report_command_with_segment_filter(xpiano_home: Path) -> None:
     assert "match_rate=0.80" in result.stdout
 
 
+def test_report_command_without_reports_prints_message(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(app, ["report", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "No report history." in result.stdout
+
+
 def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
     result = runner.invoke(
         app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
@@ -451,6 +464,12 @@ def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
         app, ["record-ref", "--song", "twinkle", "--segment", "default"])
     assert record_ref_result.exit_code == 0
     assert "Saved reference MIDI:" in record_ref_result.stdout
+
+
+def test_record_ref_command_requires_setup(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(app, ["record-ref", "--song", "twinkle", "--segment", "default"])
+    assert result.exit_code != 0
 
 
 def test_record_full_tier_saves_coaching(
@@ -646,6 +665,13 @@ def test_coach_command_with_mocked_provider(
     assert "Saved coaching:" in result.stdout
 
 
+def test_coach_command_without_reports_prints_message(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "No report history." in result.stdout
+
+
 def test_coach_command_with_segment_filter(
     xpiano_home: Path,
     monkeypatch,
@@ -785,6 +811,15 @@ def test_playback_command_calls_engine(monkeypatch) -> None:
     assert "Playback status: played" in result.stdout
 
 
+def test_playback_command_requires_song_setup(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference"],
+    )
+    assert result.exit_code != 0
+
+
 def test_playback_command_invalid_measures_returns_error(monkeypatch) -> None:
     def _raise(**kwargs):
         _ = kwargs
@@ -838,6 +873,15 @@ def test_wait_command_calls_engine(monkeypatch) -> None:
     )
     assert result.exit_code == 0
     assert "completed=3/4 errors=1" in result.stdout
+
+
+def test_wait_command_requires_song_setup(xpiano_home: Path) -> None:
+    _ = xpiano_home
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code != 0
 
 
 def test_wait_command_rejects_non_positive_bpm() -> None:
