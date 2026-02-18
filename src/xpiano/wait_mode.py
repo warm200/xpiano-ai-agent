@@ -87,6 +87,10 @@ def _dict_to_note(note: dict) -> NoteEvent:
     missing = [key for key in sorted(required) if key not in note]
     if missing:
         raise ValueError(f"invalid reference note entry: missing keys {', '.join(missing)}")
+    hand_raw = str(note.get("hand", "U"))
+    if hand_raw not in {"L", "R", "U"}:
+        raise ValueError(f"invalid reference note entry: hand must be one of L,R,U (got {hand_raw})")
+    hand = cast(Literal["L", "R", "U"], hand_raw)
     return NoteEvent(
         pitch=int(note["pitch"]),
         pitch_name=str(note["pitch_name"]),
@@ -94,7 +98,7 @@ def _dict_to_note(note: dict) -> NoteEvent:
         end_sec=float(note["end_sec"]),
         dur_sec=float(note["dur_sec"]),
         velocity=int(note["velocity"]),
-        hand=cast(Literal["L", "R", "U"], note.get("hand", "U")),
+        hand=hand,
     )
 
 
