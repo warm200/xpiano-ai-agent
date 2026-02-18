@@ -36,7 +36,7 @@ META_SCHEMA: dict[str, Any] = {
                     "label": {"type": "string"},
                     "start_measure": {"type": "integer", "minimum": 1},
                     "end_measure": {"type": "integer", "minimum": 1},
-                    "count_in_measures": {"type": "integer", "minimum": 0, "maximum": 4, "default": 1},
+                    "count_in_measures": {"type": "integer", "minimum": 1, "maximum": 4, "default": 1},
                 },
                 "additionalProperties": False,
             },

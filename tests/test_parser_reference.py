@@ -122,11 +122,10 @@ def test_record_reference_rejects_non_positive_count_in(
     _ = reference.import_reference(sample_midi_path, song_id="twinkle")
     meta = reference.load_meta("twinkle")
     meta["segments"][0]["count_in_measures"] = 0
-    reference.save_meta(song_id="twinkle", meta=meta)
     try:
-        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+        reference.save_meta(song_id="twinkle", meta=meta)
     except ValueError as exc:
-        assert "count_in_measures must be > 0" in str(exc)
+        assert "count_in_measures" in str(exc)
     else:
         raise AssertionError("expected ValueError for non-positive count_in_measures")
 

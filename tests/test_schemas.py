@@ -14,6 +14,18 @@ def test_meta_schema_validates() -> None:
     assert validate("meta", meta) == []
 
 
+def test_meta_schema_rejects_zero_count_in() -> None:
+    meta = {
+        "song_id": "twinkle",
+        "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+        "bpm": 80,
+        "segments": [{"segment_id": "verse1", "start_measure": 1, "end_measure": 4, "count_in_measures": 0}],
+        "tolerance": {"match_tol_ms": 80, "timing_grades": {"great_ms": 25, "good_ms": 50, "rushed_dragged_ms": 100}},
+    }
+    errors = validate("meta", meta)
+    assert errors
+
+
 def test_report_schema_validates() -> None:
     report = {
         "version": "0.1",
