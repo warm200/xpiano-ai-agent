@@ -220,18 +220,23 @@ def record(
         console.print(f"quality_tier={result.quality_tier}")
         console.print("Partial match. Showing top 3 issues first.")
     else:
+        provider = None
         try:
             provider = create_provider(cfg)
+        except Exception as exc:
+            console.print(f"Provider unavailable, using fallback coaching: {exc}")
+
+        if provider is None:
+            coaching = fallback_output(report_data)
+        else:
             coaching = get_coaching(
                 report=report_data,
                 provider=provider,
                 max_retries=int(cfg.get("llm", {}).get("max_retries", 3)),
             )
-            coaching_path = save_coaching(
-                coaching=coaching, song_id=song, data_dir=data_dir)
-            console.print(f"Saved coaching: {coaching_path}")
-        except Exception as exc:
-            console.print(f"Coaching skipped: {exc}")
+        coaching_path = save_coaching(
+            coaching=coaching, song_id=song, data_dir=data_dir)
+        console.print(f"Saved coaching: {coaching_path}")
         console.print(render_report(report_data, coaching=coaching))
         console.print(f"quality_tier={result.quality_tier}")
     console.print(render_piano_roll_diff(report_data))

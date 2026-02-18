@@ -199,6 +199,29 @@ def test_record_full_tier_saves_coaching(
     assert "Saved coaching:" in record_result.stdout
 
 
+def test_record_full_tier_falls_back_when_provider_unavailable(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record",
+                        lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(ValueError("missing key")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fallback_coaching.json"),
+    )
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Provider unavailable" in record_result.stdout
+    assert "Saved coaching:" in record_result.stdout
+
+
 def test_coach_command_with_mocked_provider(
     xpiano_home: Path,
     monkeypatch,
