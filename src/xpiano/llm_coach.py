@@ -36,6 +36,56 @@ PLAYBACK_TOOL_SCHEMA = {
 }
 
 
+def _validate_playback_payload(payload: Any) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError("invalid playback tool payload: expected object")
+    allowed = {"source", "measures", "bpm", "highlight_pitches", "delay_between_sec"}
+    unknown = sorted(set(payload.keys()) - allowed)
+    if unknown:
+        raise ValueError(f"invalid playback tool payload keys: {', '.join(unknown)}")
+
+    source = str(payload.get("source", ""))
+    if source not in {"reference", "attempt", "comparison"}:
+        raise ValueError(f"invalid playback source: {source}")
+
+    out: dict[str, Any] = {"source": source}
+    measures = payload.get("measures")
+    if measures is not None:
+        if not isinstance(measures, dict):
+            raise ValueError("invalid playback measures: expected object")
+        m_unknown = sorted(set(measures.keys()) - {"start", "end"})
+        if m_unknown:
+            raise ValueError(f"invalid playback measures keys: {', '.join(m_unknown)}")
+        if "start" not in measures or "end" not in measures:
+            raise ValueError("invalid playback measures: start and end are required together")
+        start = int(measures["start"])
+        end = int(measures["end"])
+        if start <= 0 or end <= 0 or end < start:
+            raise ValueError(f"invalid playback measure range: {start}-{end}")
+        out["measures"] = {"start": start, "end": end}
+
+    bpm = payload.get("bpm")
+    if bpm is not None:
+        bpm_value = float(bpm)
+        if bpm_value < 20 or bpm_value > 240:
+            raise ValueError("invalid playback bpm: must be in range 20..240")
+        out["bpm"] = bpm_value
+
+    highlight = payload.get("highlight_pitches")
+    if highlight is not None:
+        if not isinstance(highlight, list) or not all(isinstance(item, str) for item in highlight):
+            raise ValueError("invalid playback highlight_pitches: expected list[str]")
+        out["highlight_pitches"] = highlight
+
+    delay_between = payload.get("delay_between_sec")
+    if delay_between is not None:
+        delay_value = float(delay_between)
+        if delay_value < 0:
+            raise ValueError("invalid playback delay_between_sec: must be >= 0")
+        out["delay_between_sec"] = delay_value
+    return out
+
+
 def build_coaching_prompt(report: dict[str, Any]) -> str:
     compact_report = {
         "song_id": report.get("song_id"),
@@ -217,7 +267,10 @@ async def stream_coaching(
         if event_type == "tool_use":
             payload = event.get("input", {})
             if payload:
+                validated_payload = _validate_playback_payload(payload)
                 if on_tool is not None:
-                    on_tool(payload)
-                playback_engine.play(**payload)
+                    on_tool(validated_payload)
+                playback_engine.play(**validated_payload)
+            else:
+                raise ValueError("invalid playback tool payload: missing input")
     return "".join(chunks)

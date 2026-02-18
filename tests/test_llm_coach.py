@@ -49,6 +49,24 @@ class FakeStreamProvider(LLMProvider):
         }
 
 
+class FakeInvalidToolProvider(LLMProvider):
+    def generate(self, prompt: str, output_schema: dict | None = None) -> str:
+        _ = prompt
+        _ = output_schema
+        return "{}"
+
+    async def stream(self, prompt: str, tools: list[dict] | None = None) -> AsyncIterator[dict[str, Any]]:
+        _ = prompt
+        _ = tools
+        yield {"type": "text_delta", "text": "issue found"}
+        yield {
+            "type": "tool_use",
+            "input": {
+                "source": "bad",
+            },
+        }
+
+
 def _report() -> dict[str, Any]:
     return {
         "song_id": "twinkle",
@@ -166,3 +184,29 @@ def test_stream_coaching_calls_playback_engine() -> None:
     assert "issue found" in text
     assert streamed == ["issue found"]
     assert len(tool_events) == 1
+
+
+def test_stream_coaching_rejects_invalid_tool_payload() -> None:
+    class Playback:
+        def __init__(self):
+            self.calls = 0
+
+        def play(self, **kwargs):
+            _ = kwargs
+            self.calls += 1
+
+    provider = FakeInvalidToolProvider()
+    playback = Playback()
+    try:
+        _ = asyncio.run(
+            stream_coaching(
+                report=_report(),
+                provider=provider,
+                playback_engine=playback,
+            )
+        )
+    except ValueError as exc:
+        assert "invalid playback source" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid tool payload")
+    assert playback.calls == 0
