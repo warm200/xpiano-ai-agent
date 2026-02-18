@@ -141,7 +141,10 @@ def _normalize_pitch_set(value: Any) -> set[int]:
                 raise ValueError("invalid event_stream pitch: expected finite number")
             if not pitch.is_integer():
                 raise ValueError("invalid event_stream pitch: expected integer")
-        out.add(int(pitch))
+        pitch_value = int(pitch)
+        if pitch_value < 0 or pitch_value > 127:
+            raise ValueError("invalid event_stream pitch: must be in range 0..127")
+        out.add(pitch_value)
     return out
 
 
