@@ -62,6 +62,15 @@ def _segment_time_bounds(meta: dict, segment_id: str | None) -> tuple[float, flo
     return (start_sec, end_sec)
 
 
+def _validate_timing_meta(meta: dict) -> None:
+    beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
+    bpm = float(meta.get("bpm", 120))
+    if beats_per_measure <= 0:
+        raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
+
+
 def _slice_to_segment(notes: list[NoteEvent], segment_bounds: tuple[float, float] | None) -> list[NoteEvent]:
     if segment_bounds is None:
         return notes
@@ -185,6 +194,7 @@ def analyze(
     segment_id: str | None = None,
     attempt_is_segment_relative: bool = False,
 ) -> AnalysisResult:
+    _validate_timing_meta(meta)
     hand_split = int(meta.get("hand_split", {}).get("split_pitch", 60))
     segment_bounds = _segment_time_bounds(meta, segment_id=segment_id)
     raw_ref_notes = midi_to_notes(ref_midi, hand_split=hand_split)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import mido
+import pytest
 
 from xpiano.analysis import analyze
 from xpiano.analysis import AnalysisResult
@@ -208,6 +209,30 @@ def test_analysis_handles_segment_relative_attempt_recording(tmp_path: Path) -> 
     )
     assert result.match_rate >= 0.99
     assert all(event.measure == 2 for event in result.events)
+
+
+def test_analysis_rejects_non_positive_bpm(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["bpm"] = 0
+    with pytest.raises(ValueError, match="invalid bpm"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
+
+
+def test_analysis_rejects_non_positive_beats_per_measure(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+    meta = _meta()
+    meta["time_signature"]["beats_per_measure"] = 0
+    with pytest.raises(ValueError, match="beats_per_measure must be > 0"):
+        _ = analyze(str(ref_mid), str(attempt_mid), meta)
 
 
 def test_report_limits_top_problems_for_simplified_quality(tmp_path: Path) -> None:
