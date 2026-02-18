@@ -111,6 +111,8 @@ def setup(
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if count_in <= 0:
+        raise typer.BadParameter("count-in must be > 0")
     config.ensure_config(data_dir=data_dir)
     beats_per_measure, beat_unit = _parse_time_signature(time_sig)
 
@@ -228,6 +230,8 @@ def record(
     measures = int(segment_cfg["end_measure"]) - \
         int(segment_cfg["start_measure"]) + 1
     count_in_measures = int(segment_cfg.get("count_in_measures", 1))
+    if count_in_measures <= 0:
+        raise typer.BadParameter("segment count_in_measures must be > 0")
     duration_sec = measures * beats_per_measure * (60.0 / bpm)
     count_in_beats = count_in_measures * beats_per_measure
 

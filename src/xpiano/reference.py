@@ -239,6 +239,8 @@ def record_reference(
     bpm = float(meta["bpm"])
     measures = int(segment["end_measure"]) - int(segment["start_measure"]) + 1
     count_in_measures = int(segment.get("count_in_measures", 1))
+    if count_in_measures <= 0:
+        raise ValueError("segment count_in_measures must be > 0")
     duration_sec = measures * beats_per_measure * (60.0 / bpm)
     count_in_beats = count_in_measures * beats_per_measure
     midi = midi_io.record(

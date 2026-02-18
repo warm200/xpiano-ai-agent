@@ -95,3 +95,19 @@ def test_record_reference_uses_meta_segment(
     assert calls[0]["duration_sec"] > 0
     assert calls[0]["beats_per_measure"] == 4
     assert calls[0]["beat_unit"] == 4
+
+
+def test_record_reference_rejects_non_positive_count_in(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+) -> None:
+    _ = reference.import_reference(sample_midi_path, song_id="twinkle")
+    meta = reference.load_meta("twinkle")
+    meta["segments"][0]["count_in_measures"] = 0
+    reference.save_meta(song_id="twinkle", meta=meta)
+    try:
+        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+    except ValueError as exc:
+        assert "count_in_measures must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive count_in_measures")
