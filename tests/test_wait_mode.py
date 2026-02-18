@@ -172,6 +172,54 @@ def test_run_wait_mode_event_stream_callbacks(xpiano_home: Path) -> None:
     assert timeouts == []
 
 
+def test_run_wait_mode_event_stream_accepts_list_pitch_inputs(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    notes = [
+        _note(60, 0.0, "C4"),
+        _note(62, 0.5, "D4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+        event_stream=[[60], [62]],
+    )
+    assert result.total_steps == 2
+    assert result.completed == 2
+    assert result.errors == 0
+
+
+def test_run_wait_mode_event_stream_invalid_item_counts_error(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    notes = [
+        _note(60, 0.0, "C4"),
+    ]
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([asdict(note) for note in notes]),
+        encoding="utf-8",
+    )
+    wrong_calls: list[tuple[list[str], set[int]]] = []
+    result = run_wait_mode(
+        song_id="twinkle",
+        segment_id="verse1",
+        data_dir=xpiano_home,
+        event_stream=["bad"],
+        on_wrong=lambda step, played: wrong_calls.append((step.pitch_names, played)),
+    )
+    assert result.total_steps == 1
+    assert result.completed == 0
+    assert result.errors == 1
+    assert wrong_calls == [(["C4"], set())]
+
+
 def test_run_wait_mode_event_stream_short_input_counts_timeouts(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)

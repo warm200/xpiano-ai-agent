@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import mido
 
@@ -123,6 +123,22 @@ def _dict_to_note(note: dict) -> NoteEvent:
     )
 
 
+def _normalize_pitch_set(value: Any) -> set[int]:
+    iterable: Iterable[Any]
+    if isinstance(value, set):
+        iterable = value
+    elif isinstance(value, (list, tuple)):
+        iterable = value
+    else:
+        raise ValueError("invalid event_stream item: expected set/list/tuple of pitches")
+    out: set[int] = set()
+    for pitch in iterable:
+        if isinstance(pitch, bool):
+            raise ValueError("invalid event_stream pitch: expected integer")
+        out.add(int(pitch))
+    return out
+
+
 def run_wait_mode(
     song_id: str,
     segment_id: str,
@@ -165,14 +181,21 @@ def run_wait_mode(
                 if on_timeout is not None:
                     on_timeout(step)
                 continue
-            if incoming_step == step.pitches:
+            try:
+                incoming_pitches = _normalize_pitch_set(incoming_step)
+            except (TypeError, ValueError):
+                errors += 1
+                if on_wrong is not None:
+                    on_wrong(step, set())
+                continue
+            if incoming_pitches == step.pitches:
                 completed += 1
                 if on_match is not None:
                     on_match(step)
             else:
                 errors += 1
                 if on_wrong is not None:
-                    on_wrong(step, set(incoming_step))
+                    on_wrong(step, incoming_pitches)
         return WaitModeResult(total_steps=len(steps), completed=completed, errors=errors)
 
     beat_timeout_sec = 2.0 * (60.0 / float(meta["bpm"]))
