@@ -21,6 +21,20 @@ def _coerce_int(value: Any, default: int = 0) -> int:
             return default
         if not value.is_integer():
             return default
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return default
+        try:
+            return int(stripped)
+        except ValueError:
+            try:
+                parsed = float(stripped)
+            except ValueError:
+                return default
+            if not math.isfinite(parsed) or not parsed.is_integer():
+                return default
+            return int(parsed)
     try:
         return int(value)
     except (TypeError, ValueError, OverflowError):

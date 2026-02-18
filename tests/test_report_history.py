@@ -190,3 +190,33 @@ def test_build_history_handles_non_object_summary_and_counts(
     assert rows[0]["match_rate"] == 0.0
     assert rows[0]["matched"] == 0
     assert rows[0]["ref_notes"] == 0
+
+
+def test_build_history_parses_decimal_integer_strings(
+    xpiano_home: Path,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    legacy_payload = {
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "summary": {
+            "counts": {
+                "ref_notes": "10.0",
+                "matched": "8.0",
+                "missing": "2.0",
+                "extra": "1.0",
+            },
+            "match_rate": "0.8",
+        },
+    }
+    (reports / "20260101_120000.json").write_text(
+        json.dumps(legacy_payload), encoding="utf-8"
+    )
+
+    rows = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
+    assert len(rows) == 1
+    assert rows[0]["ref_notes"] == 10
+    assert rows[0]["matched"] == 8
+    assert rows[0]["missing"] == 2
+    assert rows[0]["extra"] == 1
