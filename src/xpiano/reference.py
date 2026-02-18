@@ -175,6 +175,17 @@ def save_attempt(song_id: str, midi: mido.MidiFile, data_dir: str | Path | None 
     return output
 
 
+def save_reference(song_id: str, midi: mido.MidiFile, data_dir: str | Path | None = None) -> Path:
+    target_song_dir = song_dir(song_id, data_dir=data_dir)
+    target_ref = target_song_dir / "reference.mid"
+    midi.save(str(target_ref))
+    notes = parser.midi_to_notes(target_ref)
+    ref_notes_path = target_song_dir / "reference_notes.json"
+    with ref_notes_path.open("w", encoding="utf-8") as fp:
+        json.dump([asdict(n) for n in notes], fp, ensure_ascii=True, indent=2)
+    return target_ref
+
+
 def reference_midi_path(song_id: str, data_dir: str | Path | None = None) -> Path:
     path = song_dir(song_id, data_dir=data_dir) / "reference.mid"
     if not path.exists():

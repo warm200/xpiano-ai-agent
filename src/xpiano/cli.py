@@ -208,6 +208,35 @@ def record(
     console.print(render_piano_roll_diff(report_data))
 
 
+@app.command("record-ref")
+def record_ref(
+    song: str = typer.Option(..., "--song"),
+    segment: str = typer.Option("default", "--segment"),
+    input_port: str | None = typer.Option(None, "--input-port"),
+    output_port: str | None = typer.Option(None, "--output-port"),
+    data_dir: Path | None = typer.Option(None, "--data-dir"),
+) -> None:
+    config.ensure_config(data_dir=data_dir)
+    meta = reference.load_meta(song_id=song, data_dir=data_dir)
+    segment_cfg = _segment_meta(meta, segment_id=segment)
+    beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
+    bpm = float(meta["bpm"])
+    measures = int(segment_cfg["end_measure"]) - int(segment_cfg["start_measure"]) + 1
+    count_in_measures = int(segment_cfg.get("count_in_measures", 1))
+    duration_sec = measures * beats_per_measure * (60.0 / bpm)
+    count_in_beats = count_in_measures * beats_per_measure
+
+    midi = midi_io.record(
+        port=input_port,
+        duration_sec=duration_sec,
+        count_in_beats=count_in_beats,
+        bpm=bpm,
+        output_port=output_port,
+    )
+    path = reference.save_reference(song_id=song, midi=midi, data_dir=data_dir)
+    console.print(f"Saved reference MIDI: {path}")
+
+
 @app.command("report")
 def report(
     song: str = typer.Option(..., "--song"),

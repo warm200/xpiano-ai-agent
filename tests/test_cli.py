@@ -74,6 +74,18 @@ def test_record_and_report_commands(
     assert "match_rate=" in report_result.stdout
 
 
+def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+    monkeypatch.setattr("xpiano.cli.midi_io.record",
+                        lambda **_: _recorded_midi())
+    record_ref_result = runner.invoke(
+        app, ["record-ref", "--song", "twinkle", "--segment", "default"])
+    assert record_ref_result.exit_code == 0
+    assert "Saved reference MIDI:" in record_ref_result.stdout
+
+
 def test_record_full_tier_saves_coaching(
     sample_midi_path: Path,
     monkeypatch,
