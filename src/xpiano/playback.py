@@ -41,6 +41,27 @@ def _measure_to_sec(measure: int, bpm: float, beats_per_measure: int, segment_st
     return beats_from_start * (60.0 / bpm)
 
 
+def _measure_range_to_secs(
+    selected: MeasureRange,
+    bpm: float,
+    beats_per_measure: int,
+    base_measure: int,
+) -> tuple[float, float]:
+    start_sec = _measure_to_sec(
+        measure=selected.start,
+        bpm=bpm,
+        beats_per_measure=beats_per_measure,
+        segment_start_measure=base_measure,
+    )
+    end_sec = _measure_to_sec(
+        measure=selected.end + 1,
+        bpm=bpm,
+        beats_per_measure=beats_per_measure,
+        segment_start_measure=base_measure,
+    )
+    return start_sec, end_sec
+
+
 def _pitch_names_to_numbers(values: list[str] | None) -> set[int]:
     if not values:
         return set()
@@ -89,22 +110,15 @@ def play(
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     ref_bpm = float(meta["bpm"])
     seg_start = int(segment["start_measure"])
-
-    start_sec = _measure_to_sec(
-        measure=selected.start,
-        bpm=ref_bpm,
-        beats_per_measure=beats_per_measure,
-        segment_start_measure=seg_start,
-    )
-    end_sec = _measure_to_sec(
-        measure=selected.end + 1,
-        bpm=ref_bpm,
-        beats_per_measure=beats_per_measure,
-        segment_start_measure=seg_start,
-    )
     highlight = _pitch_names_to_numbers(highlight_pitches)
 
     if source == "reference":
+        start_sec, end_sec = _measure_range_to_secs(
+            selected=selected,
+            bpm=ref_bpm,
+            beats_per_measure=beats_per_measure,
+            base_measure=1,
+        )
         return _play_single(
             midi_path=reference.reference_midi_path(
                 song_id=song_id, data_dir=data_dir),
@@ -116,6 +130,12 @@ def play(
         )
 
     if source == "attempt":
+        start_sec, end_sec = _measure_range_to_secs(
+            selected=selected,
+            bpm=ref_bpm,
+            beats_per_measure=beats_per_measure,
+            base_measure=seg_start,
+        )
         return _play_single(
             midi_path=reference.latest_attempt_path(
                 song_id=song_id, data_dir=data_dir),
@@ -127,13 +147,25 @@ def play(
         )
 
     if source == "comparison":
+        attempt_start_sec, attempt_end_sec = _measure_range_to_secs(
+            selected=selected,
+            bpm=ref_bpm,
+            beats_per_measure=beats_per_measure,
+            base_measure=seg_start,
+        )
+        ref_start_sec, ref_end_sec = _measure_range_to_secs(
+            selected=selected,
+            bpm=ref_bpm,
+            beats_per_measure=beats_per_measure,
+            base_measure=1,
+        )
         first = _play_single(
             midi_path=reference.latest_attempt_path(
                 song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
-            start_sec=start_sec,
-            end_sec=end_sec,
+            start_sec=attempt_start_sec,
+            end_sec=attempt_end_sec,
             highlight=set(),
         )
         if first.status == "no_device":
@@ -144,8 +176,8 @@ def play(
                 song_id=song_id, data_dir=data_dir),
             port=output_port,
             bpm=bpm,
-            start_sec=start_sec,
-            end_sec=end_sec,
+            start_sec=ref_start_sec,
+            end_sec=ref_end_sec,
             highlight=highlight,
         )
         return PlayResult(status=second.status, duration_sec=first.duration_sec + delay_between + second.duration_sec)

@@ -33,6 +33,16 @@ def _meta() -> dict:
     }
 
 
+def _meta_segment2() -> dict:
+    return {
+        "song_id": "twinkle",
+        "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+        "bpm": 120,
+        "segments": [{"segment_id": "verse2", "start_measure": 2, "end_measure": 3}],
+        "tolerance": {"match_tol_ms": 80, "timing_grades": {"great_ms": 25, "good_ms": 50, "rushed_dragged_ms": 100}},
+    }
+
+
 def test_play_reference_mode_slices_measures(xpiano_home: Path, monkeypatch) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)
@@ -85,3 +95,60 @@ def test_play_comparison_mode_calls_twice(xpiano_home: Path, monkeypatch) -> Non
     )
     assert result.status == "played"
     assert len(calls) == 2
+
+
+def test_play_reference_uses_absolute_measure_time(xpiano_home: Path, monkeypatch) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    ref_mid = song_dir / "reference.mid"
+    _write_simple_midi(ref_mid)
+    save_meta(song_id="twinkle", meta=_meta_segment2())
+
+    captured: dict = {}
+
+    def fake_play_midi(**kwargs):
+        captured.update(kwargs)
+        return PlayResult(status="played", duration_sec=1.0)
+
+    monkeypatch.setattr("xpiano.playback.midi_io.play_midi", fake_play_midi)
+    _ = play(
+        source="reference",
+        song_id="twinkle",
+        segment_id="verse2",
+        measures="2-2",
+        data_dir=xpiano_home,
+    )
+    assert captured["start_sec"] == 2.0
+    assert captured["end_sec"] == 4.0
+
+
+def test_play_comparison_uses_relative_attempt_and_absolute_reference(xpiano_home: Path, monkeypatch) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    attempts_dir = song_dir / "attempts"
+    attempts_dir.mkdir(parents=True, exist_ok=True)
+    ref_mid = song_dir / "reference.mid"
+    attempt_mid = attempts_dir / "20260101_120000.mid"
+    _write_simple_midi(ref_mid)
+    _write_simple_midi(attempt_mid)
+    save_meta(song_id="twinkle", meta=_meta_segment2())
+
+    calls: list[dict] = []
+
+    def fake_play_midi(**kwargs):
+        calls.append(kwargs)
+        return PlayResult(status="played", duration_sec=1.0)
+
+    monkeypatch.setattr("xpiano.playback.midi_io.play_midi", fake_play_midi)
+    _ = play(
+        source="comparison",
+        song_id="twinkle",
+        segment_id="verse2",
+        measures="2-2",
+        data_dir=xpiano_home,
+        delay_between=0.01,
+    )
+    assert len(calls) == 2
+    assert calls[0]["start_sec"] == 0.0
+    assert calls[0]["end_sec"] == 2.0
+    assert calls[1]["start_sec"] == 2.0
+    assert calls[1]["end_sec"] == 4.0
