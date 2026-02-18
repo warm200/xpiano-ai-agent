@@ -75,6 +75,10 @@ def build_pitch_sequence(notes: list[NoteEvent], meta: dict) -> list[PitchSetSte
 
 
 def _dict_to_note(note: dict) -> NoteEvent:
+    required = {"pitch", "pitch_name", "start_sec", "end_sec", "dur_sec", "velocity"}
+    missing = [key for key in sorted(required) if key not in note]
+    if missing:
+        raise ValueError(f"invalid reference note entry: missing keys {', '.join(missing)}")
     return NoteEvent(
         pitch=int(note["pitch"]),
         pitch_name=str(note["pitch_name"]),

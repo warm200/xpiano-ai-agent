@@ -116,3 +116,25 @@ def test_run_wait_mode_rejects_invalid_segment_range(xpiano_home: Path) -> None:
         assert "invalid segment range" in str(exc)
     else:
         raise AssertionError("expected ValueError for invalid segment range")
+
+
+def test_run_wait_mode_rejects_invalid_reference_note_entry(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    bad_note = {"pitch": 60}
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([bad_note]),
+        encoding="utf-8",
+    )
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "invalid reference note entry" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid reference note entry")
