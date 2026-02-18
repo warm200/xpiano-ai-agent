@@ -294,8 +294,8 @@ def record_reference(
         raise ValueError("invalid time signature: beat_unit must be > 0")
     if beat_unit not in {1, 2, 4, 8, 16}:
         raise ValueError("invalid time signature: beat_unit must be one of 1,2,4,8,16")
-    if bpm <= 0:
-        raise ValueError("invalid bpm: must be > 0")
+    if bpm < 20 or bpm > 240:
+        raise ValueError("invalid bpm: must be in range 20..240")
     if start_measure <= 0 or end_measure < start_measure:
         raise ValueError(
             f"invalid segment range: {start_measure}-{end_measure}"
