@@ -140,6 +140,8 @@ def play(
     data_dir: str | Path | None = None,
     output_port: str | None = None,
 ) -> PlayResult:
+    if bpm is not None and bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
     meta = reference.load_meta(song_id=song_id, data_dir=data_dir)
     segment = _segment_config(meta, segment_id=segment_id)
     selected = _resolve_measures(segment=segment, measures=measures)

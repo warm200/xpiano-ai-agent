@@ -279,6 +279,16 @@ def test_play_rejects_non_positive_meta_bpm(monkeypatch) -> None:
         )
 
 
+def test_play_rejects_non_positive_bpm_override() -> None:
+    with pytest.raises(ValueError, match="invalid bpm"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            bpm=0,
+        )
+
+
 def test_play_rejects_non_positive_meta_beats_per_measure(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.playback.reference.load_meta",
