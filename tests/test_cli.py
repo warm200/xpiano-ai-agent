@@ -37,6 +37,37 @@ def test_setup_and_list_command(xpiano_home: Path) -> None:
     assert "twinkle" in result.stdout
 
 
+def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
+    setup_result = runner.invoke(
+        app,
+        ["setup", "--song", "twinkle", "--segment", "verse1", "--bpm", "80", "--time-sig", "4/4", "--measures", "4"],
+    )
+    assert setup_result.exit_code == 0
+
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "attempt.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 9, "matched": 8, "missing": 2, "extra": 1},
+            "match_rate": 0.8,
+            "top_problems": [],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
+
+    list_result = runner.invoke(app, ["list"])
+    assert list_result.exit_code == 0
+    assert "0.80" in list_result.stdout
+    assert "2/1" in list_result.stdout
+
+
 def _recorded_midi() -> mido.MidiFile:
     mid = mido.MidiFile(ticks_per_beat=480)
     track = mido.MidiTrack()

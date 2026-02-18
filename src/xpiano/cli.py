@@ -124,12 +124,27 @@ def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     table.add_column("Song")
     table.add_column("Reference")
     table.add_column("Segments")
+    table.add_column("Last Match")
+    table.add_column("Missing/Extra")
     table.add_column("Updated")
     for song in songs:
+        history_rows = build_history(
+            song_id=song.song_id,
+            attempts=1,
+            data_dir=data_dir,
+        )
+        last_match = "-"
+        last_problem = "-"
+        if history_rows:
+            latest = history_rows[-1]
+            last_match = f"{latest['match_rate']:.2f}"
+            last_problem = f"{latest['missing']}/{latest['extra']}"
         table.add_row(
             song.song_id,
             "yes" if song.has_reference else "no",
             str(song.segments),
+            last_match,
+            last_problem,
             song.updated_at or "-",
         )
     console.print(table)
