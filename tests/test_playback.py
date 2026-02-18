@@ -200,6 +200,30 @@ def test_play_rejects_invalid_highlight_pitch(xpiano_home: Path) -> None:
         )
 
 
+def test_play_accepts_comma_separated_highlight_pitch_values(xpiano_home: Path, monkeypatch) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    save_meta(song_id="twinkle", meta=_meta())
+
+    captured: dict = {}
+
+    def fake_play_midi(**kwargs):
+        captured.update(kwargs)
+        return PlayResult(status="played", duration_sec=1.0)
+
+    monkeypatch.setattr("xpiano.playback.midi_io.play_midi", fake_play_midi)
+    result = play(
+        source="reference",
+        song_id="twinkle",
+        segment_id="verse1",
+        highlight_pitches=["C4,E4"],
+        data_dir=xpiano_home,
+    )
+    assert result.status == "played"
+    assert captured["highlight_pitches"] == {60, 64}
+
+
 def test_play_rejects_invalid_segment_range(xpiano_home: Path) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)
