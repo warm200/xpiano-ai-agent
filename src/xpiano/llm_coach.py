@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -36,6 +37,23 @@ PLAYBACK_TOOL_SCHEMA = {
 }
 
 
+def _parse_int_value(value: Any, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"invalid playback {name}: expected integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value) or not value.is_integer():
+            raise ValueError(f"invalid playback {name}: expected integer")
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError as exc:
+            raise ValueError(f"invalid playback {name}: expected integer") from exc
+    raise ValueError(f"invalid playback {name}: expected integer")
+
+
 def _validate_playback_payload(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("invalid playback tool payload: expected object")
@@ -58,8 +76,8 @@ def _validate_playback_payload(payload: Any) -> dict[str, Any]:
             raise ValueError(f"invalid playback measures keys: {', '.join(m_unknown)}")
         if "start" not in measures or "end" not in measures:
             raise ValueError("invalid playback measures: start and end are required together")
-        start = int(measures["start"])
-        end = int(measures["end"])
+        start = _parse_int_value(measures["start"], name="measures.start")
+        end = _parse_int_value(measures["end"], name="measures.end")
         if start <= 0 or end <= 0 or end < start:
             raise ValueError(f"invalid playback measure range: {start}-{end}")
         out["measures"] = {"start": start, "end": end}
@@ -67,7 +85,7 @@ def _validate_playback_payload(payload: Any) -> dict[str, Any]:
     bpm = payload.get("bpm")
     if bpm is not None:
         bpm_value = float(bpm)
-        if bpm_value < 20 or bpm_value > 240:
+        if not math.isfinite(bpm_value) or bpm_value < 20 or bpm_value > 240:
             raise ValueError("invalid playback bpm: must be in range 20..240")
         out["bpm"] = bpm_value
 
@@ -80,7 +98,7 @@ def _validate_playback_payload(payload: Any) -> dict[str, Any]:
     delay_between = payload.get("delay_between_sec")
     if delay_between is not None:
         delay_value = float(delay_between)
-        if delay_value < 0:
+        if not math.isfinite(delay_value) or delay_value < 0:
             raise ValueError("invalid playback delay_between_sec: must be >= 0")
         out["delay_between_sec"] = delay_value
     return out

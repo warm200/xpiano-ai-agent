@@ -5,8 +5,9 @@ import json
 from datetime import datetime
 from typing import Any, AsyncIterator
 
-from xpiano.llm_coach import (build_coaching_prompt, fallback_output,
-                              get_coaching, save_coaching, stream_coaching)
+from xpiano.llm_coach import (_validate_playback_payload, build_coaching_prompt,
+                              fallback_output, get_coaching, save_coaching,
+                              stream_coaching)
 from xpiano.llm_provider import LLMProvider
 from xpiano.schemas import validate
 
@@ -236,3 +237,26 @@ def test_stream_coaching_rejects_invalid_tool_payload() -> None:
     else:
         raise AssertionError("expected ValueError for invalid tool payload")
     assert playback.calls == 0
+
+
+def test_validate_playback_payload_rejects_nan_bpm() -> None:
+    try:
+        _ = _validate_playback_payload({"source": "reference", "bpm": "NaN"})
+    except ValueError as exc:
+        assert "invalid playback bpm" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for NaN bpm")
+
+
+def test_validate_playback_payload_rejects_non_integer_measure_start() -> None:
+    try:
+        _ = _validate_playback_payload(
+            {
+                "source": "reference",
+                "measures": {"start": 1.5, "end": 2},
+            }
+        )
+    except ValueError as exc:
+        assert "measures.start" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-integer measure start")
