@@ -293,6 +293,7 @@ def _resolve_report_path_from_row(
     row: dict,
     song_id: str,
     data_dir: Path | None,
+    exclude_filename: str | None = None,
 ) -> Path | None:
     raw_path = row.get("path")
     if raw_path:
@@ -317,19 +318,32 @@ def _resolve_report_path_from_row(
     # Graceful fallback for renamed timestamp files: choose latest report in same segment.
     segment_id = str(row.get("segment_id", "")).strip()
     if segment_id:
-        history_rows = build_history(
-            song_id=song_id,
-            segment_id=segment_id,
-            attempts=1,
-            data_dir=data_dir,
+        history_rows = _sorted_history_candidates(
+            build_history(
+                song_id=song_id,
+                segment_id=segment_id,
+                attempts=50,
+                data_dir=data_dir,
+            )
         )
-        if history_rows:
-            latest_path = str(history_rows[-1].get("path", "")).strip()
-            if latest_path:
-                latest_candidate = Path(latest_path)
-                if latest_candidate.is_file():
-                    return latest_candidate
+        for candidate_row in reversed(history_rows):
+            candidate_name = _row_text(candidate_row, "filename", default="")
+            if exclude_filename and candidate_name == exclude_filename:
+                continue
+            latest_path = str(candidate_row.get("path", "")).strip()
+            if not latest_path:
+                continue
+            latest_candidate = Path(latest_path)
+            if latest_candidate.is_file():
+                return latest_candidate
     return None
+
+
+def _sorted_history_candidates(rows: list[dict]) -> list[dict]:
+    return sorted(
+        rows,
+        key=lambda row: (_row_text(row, "filename"), _row_text(row, "path")),
+    )
 
 
 def _safe_note_name(note_number: int) -> str:
@@ -968,10 +982,16 @@ def compare(
         return
 
     prev_report_path = _resolve_report_path_from_row(
-        row=prev, song_id=song, data_dir=data_dir
+        row=prev,
+        song_id=song,
+        data_dir=data_dir,
+        exclude_filename=_row_text(curr, "filename", default=""),
     )
     curr_report_path = _resolve_report_path_from_row(
-        row=curr, song_id=song, data_dir=data_dir
+        row=curr,
+        song_id=song,
+        data_dir=data_dir,
+        exclude_filename=_row_text(prev, "filename", default=""),
     )
     if not prev_report_path or not curr_report_path:
         console.print("Playback skipped: report history does not include file paths.")

@@ -2344,6 +2344,32 @@ def test_resolve_report_path_from_row_falls_back_to_latest_segment_report(
     assert resolved == latest
 
 
+def test_resolve_report_path_from_row_fallback_skips_excluded_filename(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    older = reports_dir / "20260101_120000.json"
+    newer = reports_dir / "20260101_120100.json"
+    older.write_text("{}", encoding="utf-8")
+    newer.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        "xpiano.cli.build_history",
+        lambda **kwargs: [
+            {"segment_id": "verse1", "filename": older.name, "path": str(older)},
+            {"segment_id": "verse1", "filename": newer.name, "path": str(newer)},
+        ],
+    )
+    resolved = cli_module._resolve_report_path_from_row(
+        row={"filename": "missing.json", "segment_id": "verse1"},
+        song_id="twinkle",
+        data_dir=xpiano_home,
+        exclude_filename=newer.name,
+    )
+    assert resolved == older
+
+
 def test_resolve_report_path_from_row_does_not_create_missing_song_dir(
     xpiano_home: Path,
     monkeypatch,
