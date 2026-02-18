@@ -292,7 +292,8 @@ def record(
         console.print(f"Saved coaching: {coaching_path}")
         console.print(render_report(report_data, coaching=coaching))
         console.print(f"quality_tier={result.quality_tier}")
-    console.print(render_piano_roll_diff(report_data))
+    diff_max_measures = 1 if result.quality_tier == "simplified" else 3
+    console.print(render_piano_roll_diff(report_data, max_measures=diff_max_measures))
 
 
 @app.command("record-ref")

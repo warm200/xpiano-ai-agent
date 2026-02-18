@@ -37,6 +37,7 @@ def build_report(
     resolved_segment_id = segment_id or str(
         meta.get("segments", [{}])[0].get("segment_id", "default"))
     status = "low_quality" if result.quality_tier in {"simplified", "too_low"} else "ok"
+    top_problem_limit = 3 if result.quality_tier == "simplified" else 5
 
     report = {
         "version": "0.1",
@@ -57,7 +58,7 @@ def build_report(
                 "extra": _count_by_type(result, "extra_note"),
             },
             "match_rate": result.match_rate,
-            "top_problems": _top_problems(result),
+            "top_problems": _top_problems(result, limit=top_problem_limit),
         },
         "metrics": result.metrics,
         "events": [asdict(event) for event in result.events],

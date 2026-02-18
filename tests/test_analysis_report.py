@@ -5,6 +5,8 @@ from pathlib import Path
 import mido
 
 from xpiano.analysis import analyze
+from xpiano.analysis import AnalysisResult
+from xpiano.models import AlignmentResult, AnalysisEvent
 from xpiano.reference import save_meta
 from xpiano.report import build_report, save_report
 from xpiano.schemas import validate
@@ -206,3 +208,31 @@ def test_analysis_handles_segment_relative_attempt_recording(tmp_path: Path) -> 
     )
     assert result.match_rate >= 0.99
     assert all(event.measure == 2 for event in result.events)
+
+
+def test_report_limits_top_problems_for_simplified_quality(tmp_path: Path) -> None:
+    result = AnalysisResult(
+        ref_notes=[],
+        attempt_notes=[],
+        events=[
+            AnalysisEvent(type="missing_note", measure=1, beat=1.0, pitch=60, pitch_name="C4", hand="R", severity="high"),
+            AnalysisEvent(type="extra_note", measure=2, beat=1.0, pitch=61, pitch_name="C#4", hand="R", severity="med"),
+            AnalysisEvent(type="wrong_pitch", measure=3, beat=1.0, pitch=62, pitch_name="D4", hand="R", severity="high"),
+            AnalysisEvent(type="timing_late", measure=4, beat=1.0, pitch=63, pitch_name="D#4", hand="R", severity="low"),
+            AnalysisEvent(type="duration_short", measure=5, beat=1.0, pitch=64, pitch_name="E4", hand="R", severity="med"),
+        ],
+        metrics={"timing": {}, "duration": {}, "dynamics": {}},
+        match_rate=0.3,
+        quality_tier="simplified",
+        alignment=AlignmentResult(path=[], cost=0.0, method="test"),
+        matched=0,
+    )
+    report = build_report(
+        result=result,
+        meta=_meta(),
+        ref_path=tmp_path / "ref.mid",
+        attempt_path=tmp_path / "attempt.mid",
+        song_id="demo",
+        segment_id="verse1",
+    )
+    assert len(report["summary"]["top_problems"]) == 3
