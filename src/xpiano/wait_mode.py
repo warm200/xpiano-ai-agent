@@ -87,17 +87,33 @@ def _dict_to_note(note: dict) -> NoteEvent:
     missing = [key for key in sorted(required) if key not in note]
     if missing:
         raise ValueError(f"invalid reference note entry: missing keys {', '.join(missing)}")
+    pitch = int(note["pitch"])
+    if pitch < 0 or pitch > 127:
+        raise ValueError("invalid reference note entry: pitch must be in range 0..127")
+    pitch_name = str(note["pitch_name"])
+    if not pitch_name:
+        raise ValueError("invalid reference note entry: pitch_name must be non-empty")
+    start_sec = float(note["start_sec"])
+    end_sec = float(note["end_sec"])
+    dur_sec = float(note["dur_sec"])
+    if end_sec < start_sec:
+        raise ValueError("invalid reference note entry: end_sec must be >= start_sec")
+    if dur_sec < 0:
+        raise ValueError("invalid reference note entry: dur_sec must be >= 0")
+    velocity = int(note["velocity"])
+    if velocity < 0 or velocity > 127:
+        raise ValueError("invalid reference note entry: velocity must be in range 0..127")
     hand_raw = str(note.get("hand", "U"))
     if hand_raw not in {"L", "R", "U"}:
         raise ValueError(f"invalid reference note entry: hand must be one of L,R,U (got {hand_raw})")
     hand = cast(Literal["L", "R", "U"], hand_raw)
     return NoteEvent(
-        pitch=int(note["pitch"]),
-        pitch_name=str(note["pitch_name"]),
-        start_sec=float(note["start_sec"]),
-        end_sec=float(note["end_sec"]),
-        dur_sec=float(note["dur_sec"]),
-        velocity=int(note["velocity"]),
+        pitch=pitch,
+        pitch_name=pitch_name,
+        start_sec=start_sec,
+        end_sec=end_sec,
+        dur_sec=dur_sec,
+        velocity=velocity,
         hand=hand,
     )
 

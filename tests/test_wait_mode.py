@@ -235,3 +235,49 @@ def test_run_wait_mode_rejects_invalid_reference_note_hand(xpiano_home: Path) ->
         assert "hand must be one of L,R,U" in str(exc)
     else:
         raise AssertionError("expected ValueError for invalid reference note hand")
+
+
+def test_run_wait_mode_rejects_reference_note_pitch_out_of_range(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    bad_note = asdict(_note(60, 0.0, "C4"))
+    bad_note["pitch"] = 128
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([bad_note]),
+        encoding="utf-8",
+    )
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "pitch must be in range 0..127" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for out-of-range note pitch")
+
+
+def test_run_wait_mode_rejects_reference_note_end_before_start(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    save_meta(song_id="twinkle", meta=_meta())
+    bad_note = asdict(_note(60, 0.0, "C4"))
+    bad_note["end_sec"] = -0.1
+    (song_dir / "reference_notes.json").write_text(
+        json.dumps([bad_note]),
+        encoding="utf-8",
+    )
+    try:
+        _ = run_wait_mode(
+            song_id="twinkle",
+            segment_id="verse1",
+            data_dir=xpiano_home,
+            event_stream=[],
+        )
+    except ValueError as exc:
+        assert "end_sec must be >= start_sec" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for invalid note timing")
