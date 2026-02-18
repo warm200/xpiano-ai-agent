@@ -95,6 +95,9 @@ def _pitch_names_to_numbers(values: list[str] | None) -> set[int]:
     out: set[int] = set()
     invalid: list[str] = []
     for value in values:
+        if not isinstance(value, str):
+            invalid.append(str(value))
+            continue
         for token in value.split(","):
             normalized = token.strip()
             if not normalized:

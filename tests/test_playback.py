@@ -200,6 +200,21 @@ def test_play_rejects_invalid_highlight_pitch(xpiano_home: Path) -> None:
         )
 
 
+def test_play_rejects_non_string_highlight_pitch_value(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    _write_simple_midi(song_dir / "reference.mid")
+    save_meta(song_id="twinkle", meta=_meta())
+    with pytest.raises(ValueError, match="invalid highlight pitches"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+            highlight_pitches=["C4", 64],  # type: ignore[list-item]
+            data_dir=xpiano_home,
+        )
+
+
 def test_play_accepts_comma_separated_highlight_pitch_values(xpiano_home: Path, monkeypatch) -> None:
     song_dir = xpiano_home / "songs" / "twinkle"
     song_dir.mkdir(parents=True, exist_ok=True)
