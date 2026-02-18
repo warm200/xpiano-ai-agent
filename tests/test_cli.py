@@ -63,6 +63,47 @@ def test_setup_accepts_measure_range(xpiano_home: Path) -> None:
     assert segment["end_measure"] == 8
 
 
+def test_setup_preserves_existing_range_when_measures_omitted(xpiano_home: Path) -> None:
+    first = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--measures",
+            "5-8",
+        ],
+    )
+    assert first.exit_code == 0
+
+    second = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "90",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert second.exit_code == 0
+    meta_path = xpiano_home / "songs" / "twinkle" / "meta.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    segment = next(item for item in meta["segments"] if item["segment_id"] == "verse2")
+    assert segment["start_measure"] == 5
+    assert segment["end_measure"] == 8
+
+
 def test_setup_rejects_invalid_measure_range() -> None:
     result = runner.invoke(
         app,

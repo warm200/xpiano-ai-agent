@@ -105,14 +105,13 @@ def setup(
     segment: str = typer.Option("default", "--segment"),
     bpm: float = typer.Option(..., "--bpm"),
     time_sig: str = typer.Option("4/4", "--time-sig"),
-    measures: str = typer.Option("4", "--measures"),
+    measures: str | None = typer.Option(None, "--measures"),
     count_in: int = typer.Option(1, "--count-in"),
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     config.ensure_config(data_dir=data_dir)
     beats_per_measure, beat_unit = _parse_time_signature(time_sig)
-    start_measure, end_measure = _parse_measures(measures)
 
     try:
         meta = reference.load_meta(song_id=song, data_dir=data_dir)
@@ -125,6 +124,19 @@ def setup(
             "hand_split": {"split_pitch": split_pitch},
             "tolerance": config.load_config(data_dir=data_dir)["tolerance"],
         }
+    existing_segment = next(
+        (s for s in meta.get("segments", []) if s.get("segment_id") == segment),
+        None,
+    )
+    if measures is None:
+        if existing_segment is not None:
+            start_measure = int(existing_segment.get("start_measure", 1))
+            end_measure = int(existing_segment.get("end_measure", start_measure))
+        else:
+            start_measure = 1
+            end_measure = 4
+    else:
+        start_measure, end_measure = _parse_measures(measures)
     meta["song_id"] = song
     meta["time_signature"] = {
         "beats_per_measure": beats_per_measure, "beat_unit": beat_unit}
