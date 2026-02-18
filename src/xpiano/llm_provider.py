@@ -127,66 +127,76 @@ class ClaudeProvider(LLMProvider):
         messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
         max_tool_rounds = 8
         rounds = 0
+        try:
+            while rounds < max_tool_rounds:
+                response = self.client.messages.create(
+                    model=self.model,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    messages=messages,
+                    tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
+                )
+                assistant_content: list[dict[str, Any]] = []
+                tool_results: list[dict[str, Any]] = []
 
-        while rounds < max_tool_rounds:
-            response = self.client.messages.create(
-                model=self.model,
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                messages=messages,
-                tools=stream_tools if stream_tools else anthropic.NOT_GIVEN,
-            )
-            assistant_content: list[dict[str, Any]] = []
-            tool_results: list[dict[str, Any]] = []
-
-            for block in response.content:
-                block_type = getattr(block, "type", None)
-                if block_type == "text":
-                    text = str(getattr(block, "text", ""))
-                    if text:
-                        yield {"type": "text_delta", "text": text}
-                    assistant_content.append({"type": "text", "text": text})
-                    continue
-                if block_type == "tool_use":
-                    tool_id = str(getattr(block, "id", ""))
-                    payload = dict(getattr(block, "input", {}) or {})
-                    tool_event = {
-                        "type": "tool_use",
-                        "id": tool_id,
-                        "name": getattr(block, "name", None),
-                        "input": payload,
-                    }
-                    yield tool_event
-                    assistant_content.append(
-                        {
+                for block in response.content:
+                    block_type = getattr(block, "type", None)
+                    if block_type == "text":
+                        text = str(getattr(block, "text", ""))
+                        if text:
+                            yield {"type": "text_delta", "text": text}
+                        assistant_content.append({"type": "text", "text": text})
+                        continue
+                    if block_type == "tool_use":
+                        tool_id = str(getattr(block, "id", ""))
+                        if not tool_id:
+                            raise ValueError("missing tool_use id in Claude response")
+                        payload = dict(getattr(block, "input", {}) or {})
+                        tool_event = {
                             "type": "tool_use",
                             "id": tool_id,
                             "name": getattr(block, "name", None),
                             "input": payload,
                         }
-                    )
-                    tool_output = on_tool_use(tool_event)
-                    serialized = json.dumps(tool_output, ensure_ascii=False)
-                    tool_results.append(
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_id,
-                            "content": serialized,
-                        }
-                    )
+                        yield tool_event
+                        assistant_content.append(
+                            {
+                                "type": "tool_use",
+                                "id": tool_id,
+                                "name": getattr(block, "name", None),
+                                "input": payload,
+                            }
+                        )
+                        tool_output = on_tool_use(tool_event)
+                        serialized = json.dumps(tool_output, ensure_ascii=False)
+                        tool_results.append(
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_id,
+                                "content": serialized,
+                            }
+                        )
 
-            if assistant_content:
-                messages.append({"role": "assistant", "content": assistant_content})
-            if not tool_results:
-                break
-            messages.append({"role": "user", "content": tool_results})
-            rounds += 1
+                if assistant_content:
+                    messages.append(
+                        {"role": "assistant", "content": assistant_content})
+                if not tool_results:
+                    break
+                messages.append({"role": "user", "content": tool_results})
+                rounds += 1
 
-        if rounds >= max_tool_rounds:
-            yield {
-                "type": "text_delta",
-                "text": "\n[stream terminated: too many tool rounds]",
-            }
+            if rounds >= max_tool_rounds:
+                yield {
+                    "type": "text_delta",
+                    "text": "\n[stream terminated: too many tool rounds]",
+                }
+        except Exception:
+            async for event in super().stream_with_tool_results(
+                prompt=prompt,
+                tools=tools,
+                on_tool_use=on_tool_use,
+            ):
+                yield event
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:

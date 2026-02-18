@@ -126,3 +126,118 @@ def test_claude_provider_stream_falls_back_to_generate(monkeypatch: pytest.Monke
     provider = ClaudeProvider(api_key="test-key")
     events = asyncio.run(_collect(provider))
     assert events == [{"type": "text_delta", "text": '{"goal":"fallback"}'}]
+
+
+def test_claude_provider_stream_with_tool_results_round_trip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeTextBlock:
+        def __init__(self, text: str):
+            self.type = "text"
+            self.text = text
+
+    class FakeToolUseBlock:
+        type = "tool_use"
+        id = "toolu_123"
+        name = "playback_control"
+        input = {"source": "reference", "measures": {"start": 2, "end": 2}}
+
+    class FakeMessages:
+        def __init__(self):
+            self.calls: list[dict] = []
+            self._idx = 0
+
+        def create(self, **kwargs):
+            self.calls.append(kwargs)
+            if self._idx == 0:
+                self._idx += 1
+                return SimpleNamespace(content=[FakeTextBlock("intro"), FakeToolUseBlock()])
+            return SimpleNamespace(content=[FakeTextBlock("done")])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("stream fallback should not be used in this test")
+
+    fake_messages = FakeMessages()
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = fake_messages
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=[{"name": "playback_control", "parameters": {"type": "object"}}],
+            on_tool_use=lambda event: {
+                "status": "played",
+                "duration_sec": 1.2,
+                "echo_source": event["input"]["source"],
+            },
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    events = asyncio.run(_collect(provider))
+    assert [event["type"] for event in events] == ["text_delta", "tool_use", "text_delta"]
+    second_call_messages = fake_messages.calls[1]["messages"]
+    user_blocks = [
+        block
+        for message in second_call_messages
+        if message.get("role") == "user" and isinstance(message.get("content"), list)
+        for block in message["content"]
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+    ]
+    assert len(user_blocks) == 1
+    assert '"status": "played"' in user_blocks[0]["content"]
+
+
+def test_claude_provider_stream_with_tool_results_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeEventText:
+        type = "text"
+        text = "fallback-text"
+
+    class FakeStreamManager:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            _ = exc_type, exc, tb
+            return None
+
+        def __iter__(self):
+            yield FakeEventText()
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            raise RuntimeError("create failed")
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            return FakeStreamManager()
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=None,
+            on_tool_use=lambda event: {"status": "played"},
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    events = asyncio.run(_collect(provider))
+    assert events == [{"type": "text_delta", "text": "fallback-text"}]
