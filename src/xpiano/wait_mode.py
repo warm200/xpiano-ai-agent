@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -130,6 +130,10 @@ def run_wait_mode(
     bpm: float | None = None,
     data_dir: str | Path | None = None,
     event_stream: Iterable[set[int]] | None = None,
+    on_step: Callable[[PitchSetStep], None] | None = None,
+    on_match: Callable[[PitchSetStep], None] | None = None,
+    on_wrong: Callable[[PitchSetStep, set[int]], None] | None = None,
+    on_timeout: Callable[[PitchSetStep], None] | None = None,
 ) -> WaitModeResult:
     if bpm is not None and (bpm < 20 or bpm > 240):
         raise ValueError("invalid bpm: must be in range 20..240")
@@ -152,12 +156,18 @@ def run_wait_mode(
         errors = 0
         incoming = list(event_stream)
         for idx, step in enumerate(steps):
+            if on_step is not None:
+                on_step(step)
             if idx >= len(incoming):
                 break
             if incoming[idx] == step.pitches:
                 completed += 1
+                if on_match is not None:
+                    on_match(step)
             else:
                 errors += 1
+                if on_wrong is not None:
+                    on_wrong(step, set(incoming[idx]))
         return WaitModeResult(total_steps=len(steps), completed=completed, errors=errors)
 
     beat_timeout_sec = 2.0 * (60.0 / float(meta["bpm"]))
@@ -165,6 +175,8 @@ def run_wait_mode(
     errors = 0
     with mido.open_input(port) as in_port:
         for step in steps:
+            if on_step is not None:
+                on_step(step)
             started_at = time.monotonic()
             collected: set[int] = set()
             while True:
@@ -173,12 +185,18 @@ def run_wait_mode(
                         collected.add(int(msg.note))
                 if collected == step.pitches:
                     completed += 1
+                    if on_match is not None:
+                        on_match(step)
                     break
                 if collected and not step.pitches.issubset(collected):
                     errors += 1
+                    if on_wrong is not None:
+                        on_wrong(step, set(collected))
                     collected.clear()
                 if (time.monotonic() - started_at) > beat_timeout_sec:
                     errors += 1
+                    if on_timeout is not None:
+                        on_timeout(step)
                     break
                 time.sleep(0.005)
 

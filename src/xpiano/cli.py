@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import mido
+import pretty_midi
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -15,7 +16,7 @@ from xpiano import config, midi_io, reference
 from xpiano.analysis import analyze
 from xpiano.display import (render_low_match, render_piano_roll_diff,
                             render_playback_indicator, render_report,
-                            render_streaming_text)
+                            render_streaming_text, render_wait_step)
 from xpiano.llm_coach import (fallback_output, get_coaching,
                               parse_coaching_text, save_coaching,
                               stream_coaching)
@@ -700,6 +701,26 @@ def wait(
     segment = _require_segment(segment)
     if bpm is not None and (bpm < 20 or bpm > 240):
         raise typer.BadParameter("bpm must be in range 20..240")
+
+    def _on_step(step) -> None:
+        console.print(render_wait_step(step.measure, step.beat, step.pitch_names))
+
+    def _on_match(step) -> None:
+        _ = step
+        console.print("  ok matched")
+
+    def _on_wrong(step, played_pitches: set[int]) -> None:
+        expected = ", ".join(step.pitch_names) if step.pitch_names else "(none)"
+        played_names = sorted(
+            pretty_midi.note_number_to_name(pitch) for pitch in played_pitches
+        )
+        played = ", ".join(played_names) if played_names else "(none)"
+        console.print(f"  x expected {expected}, got {played}")
+
+    def _on_timeout(step) -> None:
+        expected = ", ".join(step.pitch_names) if step.pitch_names else "(none)"
+        console.print(f"  timeout waiting for {expected}")
+
     try:
         result = run_wait_mode(
             song_id=song,
@@ -707,6 +728,10 @@ def wait(
             bpm=bpm,
             port=input_port,
             data_dir=data_dir,
+            on_step=_on_step,
+            on_match=_on_match,
+            on_wrong=_on_wrong,
+            on_timeout=_on_timeout,
         )
     except (FileNotFoundError, ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc

@@ -11,7 +11,7 @@ from xpiano.analysis import AnalysisResult
 from xpiano.cli import app
 from xpiano.llm_provider import LLMProvider
 from xpiano.models import AlignmentResult, AnalysisEvent, PlayResult
-from xpiano.wait_mode import WaitModeResult
+from xpiano.wait_mode import PitchSetStep, WaitModeResult
 
 runner = CliRunner()
 
@@ -1709,6 +1709,26 @@ def test_wait_command_calls_engine(monkeypatch) -> None:
     )
     assert result.exit_code == 0
     assert "completed=3/4 errors=1" in result.stdout
+
+
+def test_wait_command_renders_step_feedback(monkeypatch) -> None:
+    def _fake_wait_mode(**kwargs):
+        kwargs["on_step"](PitchSetStep(measure=1, beat=1.0, pitches={60}, pitch_names=["C4"]))
+        kwargs["on_wrong"](PitchSetStep(measure=1, beat=1.0, pitches={60}, pitch_names=["C4"]), {62})
+        kwargs["on_match"](PitchSetStep(measure=1, beat=1.0, pitches={60}, pitch_names=["C4"]))
+        kwargs["on_timeout"](PitchSetStep(measure=1, beat=2.0, pitches={64}, pitch_names=["E4"]))
+        return WaitModeResult(total_steps=2, completed=1, errors=1)
+
+    monkeypatch.setattr("xpiano.cli.run_wait_mode", _fake_wait_mode)
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code == 0
+    assert "M1 Beat1.00: C4" in result.stdout
+    assert "x expected C4, got D4" in result.stdout
+    assert "ok matched" in result.stdout
+    assert "timeout waiting for E4" in result.stdout
 
 
 def test_wait_command_requires_song_setup(xpiano_home: Path) -> None:
