@@ -137,7 +137,7 @@ def setup(
     song: str = typer.Option(..., "--song"),
     segment: str = typer.Option("default", "--segment"),
     bpm: float = typer.Option(..., "--bpm"),
-    time_sig: str = typer.Option("4/4", "--time-sig"),
+    time_sig: str | None = typer.Option(None, "--time-sig"),
     measures: str | None = typer.Option(None, "--measures"),
     count_in: int | None = typer.Option(None, "--count-in"),
     split_pitch: int | None = typer.Option(None, "--split-pitch"),
@@ -150,14 +150,15 @@ def setup(
     if split_pitch is not None and (split_pitch < 0 or split_pitch > 127):
         raise typer.BadParameter("split-pitch must be in range 0..127")
     config.ensure_config(data_dir=data_dir)
-    beats_per_measure, beat_unit = _parse_time_signature(time_sig)
+    parsed_time_sig = _parse_time_signature(time_sig) if time_sig is not None else None
 
     try:
         meta = reference.load_meta(song_id=song, data_dir=data_dir)
     except FileNotFoundError:
+        default_beats, default_unit = parsed_time_sig or (4, 4)
         meta = {
             "song_id": song,
-            "time_signature": {"beats_per_measure": beats_per_measure, "beat_unit": beat_unit},
+            "time_signature": {"beats_per_measure": default_beats, "beat_unit": default_unit},
             "bpm": bpm,
             "segments": [],
             "hand_split": {"split_pitch": 60},
@@ -186,6 +187,11 @@ def setup(
         count_in_measures = count_in
     existing_split_pitch = int(meta.get("hand_split", {}).get("split_pitch", 60))
     resolved_split_pitch = existing_split_pitch if split_pitch is None else split_pitch
+    if parsed_time_sig is None:
+        beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
+        beat_unit = int(meta.get("time_signature", {}).get("beat_unit", 4))
+    else:
+        beats_per_measure, beat_unit = parsed_time_sig
     meta["song_id"] = song
     meta["time_signature"] = {
         "beats_per_measure": beats_per_measure, "beat_unit": beat_unit}
