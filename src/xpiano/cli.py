@@ -113,12 +113,10 @@ def setup(
     bpm: float = typer.Option(..., "--bpm"),
     time_sig: str = typer.Option("4/4", "--time-sig"),
     measures: str | None = typer.Option(None, "--measures"),
-    count_in: int = typer.Option(1, "--count-in"),
+    count_in: int | None = typer.Option(None, "--count-in"),
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
-    if count_in <= 0:
-        raise typer.BadParameter("count-in must be > 0")
     config.ensure_config(data_dir=data_dir)
     beats_per_measure, beat_unit = _parse_time_signature(time_sig)
 
@@ -146,6 +144,15 @@ def setup(
             end_measure = 4
     else:
         start_measure, end_measure = _parse_measures(measures)
+    if count_in is None:
+        if existing_segment is not None:
+            count_in_measures = int(existing_segment.get("count_in_measures", 1))
+        else:
+            count_in_measures = 1
+    else:
+        if count_in <= 0:
+            raise typer.BadParameter("count-in must be > 0")
+        count_in_measures = count_in
     meta["song_id"] = song
     meta["time_signature"] = {
         "beats_per_measure": beats_per_measure, "beat_unit": beat_unit}
@@ -159,7 +166,7 @@ def setup(
             "label": segment,
             "start_measure": start_measure,
             "end_measure": end_measure,
-            "count_in_measures": count_in,
+            "count_in_measures": count_in_measures,
         }
     )
     meta["segments"] = sorted(segments, key=lambda seg: seg["segment_id"])
