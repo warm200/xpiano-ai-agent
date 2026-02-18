@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from itertools import count
 from typing import Literal
 
 from xpiano.measure_beat import time_to_measure_beat
@@ -50,6 +51,29 @@ def _segment_start_measure(meta: dict) -> int:
     return int(first.get("start_measure", 1))
 
 
+def _group_indices_by_time(indices: list[int], notes: list[NoteEvent], window_sec: float) -> list[list[int]]:
+    if not indices:
+        return []
+    sorted_indices = sorted(indices, key=lambda idx: notes[idx].start_sec)
+    groups: list[list[int]] = [[sorted_indices[0]]]
+    for idx in sorted_indices[1:]:
+        last_group = groups[-1]
+        anchor = notes[last_group[0]].start_sec
+        if abs(notes[idx].start_sec - anchor) <= window_sec:
+            last_group.append(idx)
+        else:
+            groups.append([idx])
+    return groups
+
+
+def _pitches_to_names(notes: list[NoteEvent], pitches: set[int]) -> list[str]:
+    names: set[str] = set()
+    for note in notes:
+        if note.pitch in pitches:
+            names.add(note.pitch_name)
+    return sorted(names)
+
+
 def generate_events(
     ref: list[NoteEvent],
     attempt: list[NoteEvent],
@@ -64,6 +88,7 @@ def generate_events(
     )
     short_ratio = float(tolerance.get("duration_short_ratio", 0.6))
     long_ratio = float(tolerance.get("duration_long_ratio", 1.5))
+    chord_window_ms = float(tolerance.get("chord_window_ms", 50))
 
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     bpm = float(meta["bpm"])
@@ -130,8 +155,111 @@ def generate_events(
                 )
             )
 
+    unmatched_ref_indices = [idx for idx in range(len(ref)) if idx not in matched_ref_indices]
+    unmatched_attempt_indices = [idx for idx in range(len(attempt)) if idx not in matched_attempt_indices]
+    consumed_ref_indices: set[int] = set()
+    consumed_attempt_indices: set[int] = set()
+    group_counter = count(1)
+    chord_window_sec = chord_window_ms / 1000.0
+
+    ref_chord_groups = _group_indices_by_time(unmatched_ref_indices, ref, chord_window_sec)
+    for ref_group in ref_chord_groups:
+        anchor_time = ref[ref_group[0]].start_sec
+        ref_context = [
+            idx for idx, note in enumerate(ref)
+            if abs(note.start_sec - anchor_time) <= chord_window_sec
+        ]
+        attempt_context = [
+            idx for idx, note in enumerate(attempt)
+            if abs(note.start_sec - anchor_time) <= chord_window_sec
+        ]
+        ref_context_pitches = {ref[idx].pitch for idx in ref_context}
+        attempt_context_pitches = {attempt[idx].pitch for idx in attempt_context}
+
+        if len(ref_context_pitches) <= 1 and len(attempt_context_pitches) <= 1:
+            continue
+
+        candidate_attempt = [
+            idx for idx in unmatched_attempt_indices
+            if idx not in consumed_attempt_indices and abs(attempt[idx].start_sec - anchor_time) <= chord_window_sec
+        ]
+        if not candidate_attempt:
+            continue
+
+        ref_pitch_map: dict[int, list[int]] = defaultdict(list)
+        attempt_pitch_map: dict[int, list[int]] = defaultdict(list)
+        for idx in ref_group:
+            ref_pitch_map[ref[idx].pitch].append(idx)
+        for idx in candidate_attempt:
+            attempt_pitch_map[attempt[idx].pitch].append(idx)
+
+        ref_pitches = set(ref_pitch_map.keys())
+        attempt_pitches = set(attempt_pitch_map.keys())
+        hit_pitches = ref_context_pitches & attempt_context_pitches
+        missing_pitches = ref_pitches - (ref_pitches & attempt_pitches)
+        extra_pitches = attempt_pitches - (ref_pitches & attempt_pitches)
+
+        pos = time_to_measure_beat(
+            time_sec=anchor_time,
+            bpm=bpm,
+            beats_per_measure=beats_per_measure,
+            start_measure=start_measure,
+        )
+        group_id = f"chord-{next(group_counter)}"
+        hit_names = _pitches_to_names(ref, hit_pitches)
+        missing_names = _pitches_to_names(ref, missing_pitches)
+        extra_names = _pitches_to_names(attempt, extra_pitches)
+        evidence = (
+            f"chord partial: hit {len(hit_pitches)}/{len(ref_context_pitches)} "
+            f"{hit_names} missing {missing_names} extra {extra_names}"
+        )
+
+        for pitch in hit_pitches:
+            for ref_idx in ref_pitch_map[pitch]:
+                consumed_ref_indices.add(ref_idx)
+            for attempt_idx in attempt_pitch_map[pitch]:
+                consumed_attempt_indices.add(attempt_idx)
+
+        for pitch in missing_pitches:
+            for ref_idx in ref_pitch_map[pitch]:
+                ref_note = ref[ref_idx]
+                consumed_ref_indices.add(ref_idx)
+                events.append(
+                    AnalysisEvent(
+                        type="missing_note",
+                        measure=pos.measure,
+                        beat=pos.beat,
+                        pitch=ref_note.pitch,
+                        pitch_name=ref_note.pitch_name,
+                        hand=ref_note.hand,
+                        severity="high",
+                        evidence=evidence,
+                        time_ref_sec=ref_note.start_sec,
+                        group_id=group_id,
+                    )
+                )
+
+        for pitch in extra_pitches:
+            for attempt_idx in attempt_pitch_map[pitch]:
+                attempt_note = attempt[attempt_idx]
+                consumed_attempt_indices.add(attempt_idx)
+                events.append(
+                    AnalysisEvent(
+                        type="extra_note",
+                        measure=pos.measure,
+                        beat=pos.beat,
+                        pitch=attempt_note.pitch,
+                        pitch_name=attempt_note.pitch_name,
+                        hand=attempt_note.hand,
+                        severity="med",
+                        evidence=evidence,
+                        time_attempt_sec=attempt_note.start_sec,
+                        group_id=group_id,
+                    )
+                )
+
     for ref_idx, ref_note in enumerate(ref):
-        if ref_idx in matched_ref_indices:
+        if ref_idx in matched_ref_indices or ref_idx in consumed_ref_indices:
             continue
         pos = time_to_measure_beat(
             time_sec=ref_note.start_sec,
@@ -153,7 +281,7 @@ def generate_events(
         )
 
     for attempt_idx, attempt_note in enumerate(attempt):
-        if attempt_idx in matched_attempt_indices:
+        if attempt_idx in matched_attempt_indices or attempt_idx in consumed_attempt_indices:
             continue
         pos = time_to_measure_beat(
             time_sec=attempt_note.start_sec,
@@ -183,7 +311,9 @@ def merge_wrong_pitch(events: list[AnalysisEvent], beat_tolerance: float = 0.20)
     passthrough: list[AnalysisEvent] = []
 
     for event in events:
-        if event.type == "missing_note":
+        if event.group_id is not None:
+            passthrough.append(event)
+        elif event.type == "missing_note":
             missing_by_measure[event.measure].append(event)
         elif event.type == "extra_note":
             extra_by_measure[event.measure].append(event)

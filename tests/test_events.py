@@ -55,3 +55,23 @@ def test_generate_events_timing_and_duration() -> None:
     event_types = {event.type for event in events}
     assert "timing_late" in event_types
     assert "duration_short" in event_types
+
+
+def test_generate_events_chord_partial_keeps_missing_and_extra() -> None:
+    ref = [
+        _note(60, 0.0, name="C4"),
+        _note(64, 0.01, name="E4"),
+        _note(67, 0.02, name="G4"),
+    ]
+    attempt = [
+        _note(60, 0.0, name="C4"),
+        _note(64, 0.01, name="E4"),
+        _note(71, 0.02, name="B4"),
+    ]
+    alignment = AlignmentResult(path=[(0, 0), (1, 1)], cost=0.01, method="per_pitch_dtw")
+    events = generate_events(ref=ref, attempt=attempt, alignment=alignment, meta=_meta())
+
+    event_types = sorted(event.type for event in events)
+    assert event_types == ["extra_note", "missing_note"]
+    assert all(event.group_id is not None for event in events)
+    assert all("chord partial" in (event.evidence or "") for event in events)
