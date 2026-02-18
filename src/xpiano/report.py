@@ -39,6 +39,12 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
     return parsed
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
 def _top_problems(result: AnalysisResult, limit: int = 5) -> list[str]:
     by_type_measure = Counter((event.type, event.measure)
                               for event in result.events)
@@ -186,8 +192,8 @@ def build_history(
                 continue
         if segment_id and report.get("segment_id") != segment_id:
             continue
-        summary = report.get("summary", {})
-        counts = summary.get("counts", {})
+        summary = _as_dict(report.get("summary"))
+        counts = _as_dict(summary.get("counts"))
         matched = _coerce_int(counts.get("matched", 0))
         ref_notes = _coerce_int(counts.get("ref_notes", 0))
         match_rate = _coerce_float(summary.get("match_rate", 0.0))
