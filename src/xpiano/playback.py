@@ -141,6 +141,10 @@ def play(
     selected = _resolve_measures(segment=segment, measures=measures)
     beats_per_measure = int(meta["time_signature"]["beats_per_measure"])
     ref_bpm = float(meta["bpm"])
+    if beats_per_measure <= 0:
+        raise ValueError("invalid time signature: beats_per_measure must be > 0")
+    if ref_bpm <= 0:
+        raise ValueError("invalid bpm: must be > 0")
     seg_start = int(segment["start_measure"])
     highlight = _pitch_names_to_numbers(highlight_pitches)
 

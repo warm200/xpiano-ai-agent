@@ -239,3 +239,39 @@ def test_play_rejects_invalid_segment_range(xpiano_home: Path) -> None:
             segment_id="verse1",
             data_dir=xpiano_home,
         )
+
+
+def test_play_rejects_non_positive_meta_bpm(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.playback.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 4},
+            "bpm": 0,
+            "segments": [{"segment_id": "verse1", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    with pytest.raises(ValueError, match="invalid bpm"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+        )
+
+
+def test_play_rejects_non_positive_meta_beats_per_measure(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.playback.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 0, "beat_unit": 4},
+            "bpm": 120,
+            "segments": [{"segment_id": "verse1", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    with pytest.raises(ValueError, match="beats_per_measure must be > 0"):
+        play(
+            source="reference",
+            song_id="twinkle",
+            segment_id="verse1",
+        )
