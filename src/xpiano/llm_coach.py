@@ -156,14 +156,31 @@ def _extract_json_text(raw: str) -> str:
 
 def _parse_and_validate(raw: str) -> tuple[dict[str, Any] | None, list[str]]:
     try:
-        payload = json.loads(_extract_json_text(raw))
+        extracted = _extract_json_text(raw)
+        payload = json.loads(extracted)
     except json.JSONDecodeError as exc:
         return None, [f"json parse failed: {exc}"]
     if not isinstance(payload, dict):
         return None, ["top-level JSON must be an object"]
     schema_errors = validate("llm_output", payload)
     if schema_errors:
-        return None, schema_errors
+        decoder = json.JSONDecoder()
+        first_error = schema_errors
+        seen: set[int] = set()
+        for idx, char in enumerate(raw):
+            if char != "{" or idx in seen:
+                continue
+            seen.add(idx)
+            try:
+                candidate, _ = decoder.raw_decode(raw[idx:])
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(candidate, dict):
+                continue
+            candidate_errors = validate("llm_output", candidate)
+            if not candidate_errors:
+                return candidate, []
+        return None, first_error
     return payload, []
 
 

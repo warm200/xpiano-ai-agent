@@ -364,6 +364,16 @@ def test_parse_coaching_text_uses_first_valid_object_when_multiple_present() -> 
     assert payload["goal"]
 
 
+def test_parse_coaching_text_recovers_with_later_schema_valid_object() -> None:
+    invalid_first = '{"status": "played", "duration_sec": 1.2}'
+    valid_second = _valid_output_json()
+    raw = f"{invalid_first}\n{valid_second}"
+    payload, errors = parse_coaching_text(raw)
+    assert errors == []
+    assert payload is not None
+    assert payload["goal"]
+
+
 def test_validate_playback_payload_rejects_nan_bpm() -> None:
     try:
         _ = _validate_playback_payload({"source": "reference", "bpm": "NaN"})
