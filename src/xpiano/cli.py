@@ -117,6 +117,8 @@ def setup(
     split_pitch: int = typer.Option(60, "--split-pitch"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if bpm <= 0:
+        raise typer.BadParameter("bpm must be > 0")
     if split_pitch < 0 or split_pitch > 127:
         raise typer.BadParameter("split-pitch must be in range 0..127")
     config.ensure_config(data_dir=data_dir)
@@ -474,6 +476,8 @@ def playback(
     output_port: str | None = typer.Option(None, "--output-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if bpm is not None and bpm <= 0:
+        raise typer.BadParameter("bpm must be > 0")
     try:
         result = playback_play(
             source=mode,
@@ -499,6 +503,8 @@ def wait(
     input_port: str | None = typer.Option(None, "--input-port"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
+    if bpm is not None and bpm <= 0:
+        raise typer.BadParameter("bpm must be > 0")
     result = run_wait_mode(
         song_id=song,
         segment_id=segment,

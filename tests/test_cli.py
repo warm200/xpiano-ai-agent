@@ -205,6 +205,24 @@ def test_setup_rejects_out_of_range_split_pitch() -> None:
     assert result.exit_code != 0
 
 
+def test_setup_rejects_non_positive_bpm() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse2",
+            "--bpm",
+            "0",
+            "--time-sig",
+            "4/4",
+        ],
+    )
+    assert result.exit_code != 0
+
+
 def test_list_shows_latest_report_stats(xpiano_home: Path) -> None:
     setup_result = runner.invoke(
         app,
@@ -716,6 +734,14 @@ def test_playback_command_invalid_highlight_returns_error(monkeypatch) -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_rejects_non_positive_bpm() -> None:
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference", "--bpm", "0"],
+    )
+    assert result.exit_code != 0
+
+
 def test_wait_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.run_wait_mode",
@@ -727,6 +753,14 @@ def test_wait_command_calls_engine(monkeypatch) -> None:
     )
     assert result.exit_code == 0
     assert "completed=3/4 errors=1" in result.stdout
+
+
+def test_wait_command_rejects_non_positive_bpm() -> None:
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1", "--bpm", "0"],
+    )
+    assert result.exit_code != 0
 
 
 def test_history_and_compare_commands(monkeypatch) -> None:
