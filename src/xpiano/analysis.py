@@ -36,6 +36,28 @@ def _dedup_ref_count(notes: list[NoteEvent], chord_window_ms: float) -> int:
     return kept
 
 
+def _segment_time_bounds(meta: dict) -> tuple[float, float] | None:
+    segments = meta.get("segments", [])
+    if not segments:
+        return None
+    segment = segments[0]
+    bpm = float(meta.get("bpm", 120))
+    beats_per_measure = int(meta.get("time_signature", {}).get("beats_per_measure", 4))
+    start_measure = int(segment.get("start_measure", 1))
+    end_measure = int(segment.get("end_measure", start_measure))
+    beat_sec = 60.0 / bpm
+    start_sec = (start_measure - 1) * beats_per_measure * beat_sec
+    end_sec = end_measure * beats_per_measure * beat_sec
+    return (start_sec, end_sec)
+
+
+def _slice_to_segment(notes: list[NoteEvent], segment_bounds: tuple[float, float] | None) -> list[NoteEvent]:
+    if segment_bounds is None:
+        return notes
+    start_sec, end_sec = segment_bounds
+    return [note for note in notes if start_sec <= note.start_sec < end_sec]
+
+
 def _select_valid_matches(
     ref_notes: list[NoteEvent],
     attempt_notes: list[NoteEvent],
@@ -138,8 +160,9 @@ def analyze(
     aligner: Aligner | None = None,
 ) -> AnalysisResult:
     hand_split = int(meta.get("hand_split", {}).get("split_pitch", 60))
-    ref_notes = midi_to_notes(ref_midi, hand_split=hand_split)
-    attempt_notes = midi_to_notes(attempt_midi, hand_split=hand_split)
+    segment_bounds = _segment_time_bounds(meta)
+    ref_notes = _slice_to_segment(midi_to_notes(ref_midi, hand_split=hand_split), segment_bounds)
+    attempt_notes = _slice_to_segment(midi_to_notes(attempt_midi, hand_split=hand_split), segment_bounds)
 
     engine = aligner or DTWAligner()
     alignment = engine.align_offline(ref_notes, attempt_notes)

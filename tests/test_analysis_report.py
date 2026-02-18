@@ -118,3 +118,26 @@ def test_report_marks_simplified_as_low_quality(tmp_path: Path) -> None:
         segment_id="verse1",
     )
     assert report["status"] == "low_quality"
+
+
+def test_analysis_slices_notes_to_segment(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [
+        (0.0, 1.0, 60),  # measure 1
+        (1.0, 1.0, 62),
+        (2.0, 1.0, 64),
+        (3.0, 1.0, 65),
+        (4.0, 1.0, 67),  # measure 2
+        (5.0, 1.0, 69),
+        (6.0, 1.0, 71),
+        (7.0, 1.0, 72),
+    ]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+
+    meta = _meta()
+    meta["segments"] = [{"segment_id": "verse2", "start_measure": 2, "end_measure": 2}]
+    result = analyze(str(ref_mid), str(attempt_mid), meta)
+    assert len(result.ref_notes) == 4
+    assert len(result.attempt_notes) == 4
