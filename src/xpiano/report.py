@@ -36,7 +36,7 @@ def build_report(
     resolved_song_id = song_id or str(meta.get("song_id", "unknown"))
     resolved_segment_id = segment_id or str(
         meta.get("segments", [{}])[0].get("segment_id", "default"))
-    status = "low_quality" if result.quality_tier == "too_low" else "ok"
+    status = "low_quality" if result.quality_tier in {"simplified", "too_low"} else "ok"
 
     report = {
         "version": "0.1",

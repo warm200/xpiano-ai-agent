@@ -98,3 +98,23 @@ def test_report_build_and_save(tmp_path: Path, xpiano_home: Path) -> None:
     assert validate("report", report) == []
     report_path = save_report(report=report, song_id="demo")
     assert report_path.exists()
+
+
+def test_report_marks_simplified_as_low_quality(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    _write_midi(ref_mid, [(0.0, 1.0, 60), (1.0, 1.0, 62), (2.0, 1.0, 64), (3.0, 1.0, 65)])
+    _write_midi(attempt_mid, [(0.0, 1.0, 60), (1.0, 1.0, 70), (2.0, 1.0, 71), (3.0, 1.0, 72)])
+
+    meta = _meta()
+    result = analyze(str(ref_mid), str(attempt_mid), meta)
+    assert result.quality_tier == "simplified"
+    report = build_report(
+        result=result,
+        meta=meta,
+        ref_path=ref_mid,
+        attempt_path=attempt_mid,
+        song_id="demo",
+        segment_id="verse1",
+    )
+    assert report["status"] == "low_quality"
