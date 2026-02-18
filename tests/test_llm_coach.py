@@ -147,6 +147,16 @@ def test_get_coaching_fallback_after_retries() -> None:
     assert validate("llm_output", output) == []
 
 
+def test_get_coaching_rejects_non_positive_max_retries() -> None:
+    provider = FakeProvider([_valid_output_json()])
+    try:
+        _ = get_coaching(report=_report(), provider=provider, max_retries=0)
+    except ValueError as exc:
+        assert "max_retries must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive max_retries")
+
+
 def test_fallback_output_schema_valid() -> None:
     output = fallback_output(_report())
     assert validate("llm_output", output) == []

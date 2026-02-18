@@ -217,6 +217,8 @@ def get_coaching(
     provider: LLMProvider,
     max_retries: int = 3,
 ) -> dict[str, Any]:
+    if max_retries <= 0:
+        raise ValueError("max_retries must be > 0")
     prompt = build_coaching_prompt(report)
     last_raw = ""
     for _ in range(max_retries):
