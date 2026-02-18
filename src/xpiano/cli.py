@@ -309,6 +309,14 @@ def record(
         raise typer.BadParameter(
             "invalid time signature: beats_per_measure must be > 0"
         )
+    if beat_unit <= 0:
+        raise typer.BadParameter(
+            "invalid time signature: beat_unit must be > 0"
+        )
+    if beat_unit not in {1, 2, 4, 8, 16}:
+        raise typer.BadParameter(
+            "invalid time signature: beat_unit must be one of 1,2,4,8,16"
+        )
     if bpm <= 0:
         raise typer.BadParameter("invalid bpm: must be > 0")
     measures = int(segment_cfg["end_measure"]) - \

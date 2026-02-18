@@ -189,3 +189,25 @@ def test_record_reference_rejects_non_positive_meta_bpm(monkeypatch) -> None:
         assert "invalid bpm" in str(exc)
     else:
         raise AssertionError("expected ValueError for non-positive bpm")
+
+
+def test_record_reference_rejects_unsupported_meta_beat_unit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.reference.load_meta",
+        lambda **kwargs: {
+            "song_id": "twinkle",
+            "time_signature": {"beats_per_measure": 4, "beat_unit": 3},
+            "bpm": 120,
+            "segments": [{"segment_id": "default", "start_measure": 1, "end_measure": 1}],
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.reference.midi_io.record",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("midi_io.record should not be called")),
+    )
+    try:
+        _ = reference.record_reference(song_id="twinkle", segment_id="default")
+    except ValueError as exc:
+        assert "beat_unit must be one of 1,2,4,8,16" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unsupported beat_unit")
