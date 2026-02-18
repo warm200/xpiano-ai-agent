@@ -735,6 +735,8 @@ def report(
         return
     except ValueError as exc:
         raise typer.BadParameter(str(exc)) from exc
+    except OSError as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Report: {report_path}")
     console.print(render_report(payload))
     console.print(render_piano_roll_diff(payload))
@@ -775,6 +777,8 @@ def coach(
             console.print("No report found for segment.")
         return
     except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    except OSError as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     provider = None

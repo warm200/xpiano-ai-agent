@@ -878,6 +878,24 @@ def test_report_command_handles_report_removed_after_selection(
     assert "No report history." in result.stdout
 
 
+def test_report_command_surfaces_report_read_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.latest_valid_report_path",
+        lambda **kwargs: Path("/tmp/unreadable_report.json"),
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+    result = runner.invoke(app, ["report", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_report_command_invalid_report_schema_prints_empty_history(xpiano_home: Path) -> None:
     reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1612,6 +1630,24 @@ def test_coach_command_handles_report_removed_after_selection(
     result = runner.invoke(app, ["coach", "--song", "twinkle", "--segment", "verse1"])
     assert result.exit_code == 0
     assert "No report found for segment." in result.stdout
+
+
+def test_coach_command_surfaces_report_read_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.latest_valid_report_path",
+        lambda **kwargs: Path("/tmp/unreadable_report.json"),
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
 
 
 def test_coach_command_invalid_report_schema_prints_empty_history(xpiano_home: Path) -> None:
