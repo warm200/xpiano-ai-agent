@@ -4,7 +4,7 @@ import asyncio
 import re
 import time
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import mido
 import pretty_midi
@@ -152,6 +152,30 @@ def _resolve_max_retries(cfg: dict) -> int:
     if parsed <= 0:
         return 3
     return parsed
+
+
+def _coerce_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_int(value: Any, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _row_text(row: dict, key: str, default: str = "-") -> str:
+    value = row.get(key, default)
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
 
 
 class _PlaybackAdapter:
@@ -452,8 +476,11 @@ def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
         last_problem = "-"
         if history_rows:
             latest = history_rows[-1]
-            last_match = f"{latest['match_rate']:.2f}"
-            last_problem = f"{latest['missing']}/{latest['extra']}"
+            last_match = f"{_coerce_float(latest.get('match_rate')):.2f}"
+            last_problem = (
+                f"{_coerce_int(latest.get('missing'))}/"
+                f"{_coerce_int(latest.get('extra'))}"
+            )
         table.add_row(
             song.song_id,
             "yes" if song.has_reference else "no",
@@ -855,11 +882,11 @@ def history(
     table.add_column("Extra")
     for row in rows:
         table.add_row(
-            row["filename"],
-            str(row["segment_id"]),
-            f"{row['match_rate']:.2f}",
-            str(row["missing"]),
-            str(row["extra"]),
+            _row_text(row, "filename"),
+            _row_text(row, "segment_id"),
+            f"{_coerce_float(row.get('match_rate')):.2f}",
+            str(_coerce_int(row.get("missing"))),
+            str(_coerce_int(row.get("extra"))),
         )
     console.print(table)
 
@@ -911,16 +938,24 @@ def compare(
     else:
         prev = rows[-2]
         curr = rows[-1]
-    console.print(f"Compare: {prev['filename']} -> {curr['filename']}")
-    delta_match = curr["match_rate"] - prev["match_rate"]
-    delta_missing = curr["missing"] - prev["missing"]
-    delta_extra = curr["extra"] - prev["extra"]
+    prev_filename = _row_text(prev, "filename")
+    curr_filename = _row_text(curr, "filename")
+    prev_match = _coerce_float(prev.get("match_rate"))
+    curr_match = _coerce_float(curr.get("match_rate"))
+    prev_missing = _coerce_int(prev.get("missing"))
+    curr_missing = _coerce_int(curr.get("missing"))
+    prev_extra = _coerce_int(prev.get("extra"))
+    curr_extra = _coerce_int(curr.get("extra"))
+    console.print(f"Compare: {prev_filename} -> {curr_filename}")
+    delta_match = curr_match - prev_match
+    delta_missing = curr_missing - prev_missing
+    delta_extra = curr_extra - prev_extra
     console.print(
-        f"match_rate: {prev['match_rate']:.2f} -> {curr['match_rate']:.2f} ({delta_match:+.2f})")
+        f"match_rate: {prev_match:.2f} -> {curr_match:.2f} ({delta_match:+.2f})")
     console.print(
-        f"missing: {prev['missing']} -> {curr['missing']} ({delta_missing:+d})")
+        f"missing: {prev_missing} -> {curr_missing} ({delta_missing:+d})")
     console.print(
-        f"extra: {prev['extra']} -> {curr['extra']} ({delta_extra:+d})")
+        f"extra: {prev_extra} -> {curr_extra} ({delta_extra:+d})")
     if delta_match > 0 and delta_missing <= 0 and delta_extra <= 0:
         verdict = "improved"
     elif delta_match == 0 and delta_missing == 0 and delta_extra == 0:
