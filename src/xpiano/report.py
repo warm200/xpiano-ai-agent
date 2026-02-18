@@ -37,7 +37,12 @@ def build_report(
     resolved_segment_id = segment_id or str(
         meta.get("segments", [{}])[0].get("segment_id", "default"))
     status = "low_quality" if result.quality_tier in {"simplified", "too_low"} else "ok"
-    top_problem_limit = 3 if result.quality_tier == "simplified" else 5
+    if result.quality_tier == "too_low":
+        top_problem_limit = 0
+    elif result.quality_tier == "simplified":
+        top_problem_limit = 3
+    else:
+        top_problem_limit = 5
 
     report = {
         "version": "0.1",

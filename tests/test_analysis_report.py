@@ -236,3 +236,29 @@ def test_report_limits_top_problems_for_simplified_quality(tmp_path: Path) -> No
         segment_id="verse1",
     )
     assert len(report["summary"]["top_problems"]) == 3
+
+
+def test_report_hides_top_problems_for_too_low_quality(tmp_path: Path) -> None:
+    result = AnalysisResult(
+        ref_notes=[],
+        attempt_notes=[],
+        events=[
+            AnalysisEvent(type="missing_note", measure=1, beat=1.0, pitch=60, pitch_name="C4", hand="R", severity="high"),
+            AnalysisEvent(type="extra_note", measure=2, beat=1.0, pitch=61, pitch_name="C#4", hand="R", severity="med"),
+            AnalysisEvent(type="wrong_pitch", measure=3, beat=1.0, pitch=62, pitch_name="D4", hand="R", severity="high"),
+        ],
+        metrics={"timing": {}, "duration": {}, "dynamics": {}},
+        match_rate=0.05,
+        quality_tier="too_low",
+        alignment=AlignmentResult(path=[], cost=0.0, method="test"),
+        matched=0,
+    )
+    report = build_report(
+        result=result,
+        meta=_meta(),
+        ref_path=tmp_path / "ref.mid",
+        attempt_path=tmp_path / "attempt.mid",
+        song_id="demo",
+        segment_id="verse1",
+    )
+    assert report["summary"]["top_problems"] == []
