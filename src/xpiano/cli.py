@@ -69,6 +69,15 @@ def _parse_attempts(value: str) -> int:
     return parsed
 
 
+def _default_segment_bounds(meta: dict) -> tuple[int, int]:
+    segments = meta.get("segments", [])
+    if not segments:
+        return 1, 4
+    starts = [int(item.get("start_measure", 1)) for item in segments]
+    ends = [int(item.get("end_measure", starts[idx])) for idx, item in enumerate(segments)]
+    return min(starts), max(ends)
+
+
 def _segment_meta(meta: dict, segment_id: str) -> dict:
     for segment in meta.get("segments", []):
         if segment.get("segment_id") == segment_id:
@@ -144,8 +153,7 @@ def setup(
             start_measure = int(existing_segment.get("start_measure", 1))
             end_measure = int(existing_segment.get("end_measure", start_measure))
         else:
-            start_measure = 1
-            end_measure = 4
+            start_measure, end_measure = _default_segment_bounds(meta)
     else:
         start_measure, end_measure = _parse_measures(measures)
     if count_in is None:
