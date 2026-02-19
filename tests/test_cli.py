@@ -40,6 +40,32 @@ def test_setup_and_list_command(xpiano_home: Path) -> None:
     assert "twinkle" in result.stdout
 
 
+def test_devices_command_surfaces_list_devices_oserror(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.cli.midi_io.list_devices",
+        lambda: (_ for _ in ()).throw(OSError("midi backend unavailable")),
+    )
+    result = runner.invoke(app, ["devices"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, OSError)
+
+
+def test_list_command_surfaces_list_songs_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.reference.list_songs",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, OSError)
+
+
 def test_setup_surfaces_save_meta_oserror(monkeypatch) -> None:
     def _raise(**kwargs):
         _ = kwargs

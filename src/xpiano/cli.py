@@ -381,7 +381,10 @@ def _safe_note_name(note_number: int) -> str:
 
 @app.command("devices")
 def devices() -> None:
-    entries = midi_io.list_devices()
+    try:
+        entries = midi_io.list_devices()
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     table = Table(title="MIDI Devices")
     table.add_column("Kind")
     table.add_column("Name")
@@ -501,7 +504,10 @@ def import_song(
 @app.command("list")
 def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     config.ensure_config(data_dir=data_dir)
-    songs = reference.list_songs(data_dir=data_dir)
+    try:
+        songs = reference.list_songs(data_dir=data_dir)
+    except (OSError, ValueError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     if not songs:
         console.print("No songs configured.")
         return
