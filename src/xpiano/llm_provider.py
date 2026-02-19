@@ -233,7 +233,7 @@ class ClaudeProvider(LLMProvider):
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:
     llm_cfg = config_data.get("llm", {})
-    provider_name = llm_cfg.get("provider", "claude")
+    provider_name = str(llm_cfg.get("provider", "claude")).strip().lower()
     if provider_name != "claude":
         raise ValueError(f"unsupported llm provider: {provider_name}")
     raw_max_tool_rounds = llm_cfg.get("max_tool_rounds", 8)

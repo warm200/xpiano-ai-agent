@@ -13,6 +13,32 @@ def test_create_provider_rejects_unknown() -> None:
         create_provider({"llm": {"provider": "unknown"}})
 
 
+def test_create_provider_normalizes_provider_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeProvider:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr("xpiano.llm_provider.ClaudeProvider", FakeProvider)
+    provider = create_provider(
+        {
+            "llm": {
+                "provider": "  ClAuDe  ",
+                "model": "model-x",
+                "api_key_env": "FAKE_API_KEY_ENV",
+                "max_tool_rounds": 4,
+            }
+        }
+    )
+    assert provider is not None
+    assert captured["model"] == "model-x"
+    assert captured["api_key_env"] == "FAKE_API_KEY_ENV"
+    assert captured["max_tool_rounds"] == 4
+
+
 def test_create_provider_rejects_non_integer_max_tool_rounds() -> None:
     with pytest.raises(ValueError, match="invalid llm.max_tool_rounds"):
         create_provider({"llm": {"provider": "claude", "max_tool_rounds": "abc"}})
