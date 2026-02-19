@@ -679,6 +679,7 @@ def record(
                         max_retries=_resolve_max_retries(cfg),
                     )
                 except Exception as exc:
+                    # Provider stacks can raise heterogeneous exception types.
                     console.print(
                         "Batch coaching recovery failed, using fallback coaching: "
                         + str(exc)
@@ -852,6 +853,7 @@ def coach(
                 max_retries=_resolve_max_retries(cfg),
             )
         except Exception as exc:
+            # Provider stacks can raise heterogeneous exception types.
             console.print(
                 "Coaching request failed, using fallback coaching: "
                 + str(exc)
