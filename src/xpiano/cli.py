@@ -715,6 +715,8 @@ def report(
         except FileNotFoundError:
             console.print("No report history.")
             return
+        except OSError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     else:
         try:
             report_path = latest_valid_report_path(
@@ -725,6 +727,8 @@ def report(
         except FileNotFoundError:
             console.print("No report found for segment.")
             return
+        except OSError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     try:
         payload = load_report(report_path)
     except FileNotFoundError:
@@ -758,6 +762,8 @@ def coach(
         except FileNotFoundError:
             console.print("No report history.")
             return
+        except OSError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     else:
         try:
             report_path = latest_valid_report_path(
@@ -768,6 +774,8 @@ def coach(
         except FileNotFoundError:
             console.print("No report found for segment.")
             return
+        except OSError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     try:
         report_payload = load_report(report_path)
     except FileNotFoundError:

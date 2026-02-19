@@ -878,6 +878,20 @@ def test_report_command_handles_report_removed_after_selection(
     assert "No report history." in result.stdout
 
 
+def test_report_command_surfaces_report_selection_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.latest_valid_report_path",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+    result = runner.invoke(app, ["report", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_report_command_surfaces_report_read_oserror(
     xpiano_home: Path,
     monkeypatch,
@@ -1630,6 +1644,20 @@ def test_coach_command_handles_report_removed_after_selection(
     result = runner.invoke(app, ["coach", "--song", "twinkle", "--segment", "verse1"])
     assert result.exit_code == 0
     assert "No report found for segment." in result.stdout
+
+
+def test_coach_command_surfaces_report_selection_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.latest_valid_report_path",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("permission denied")),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
 
 
 def test_coach_command_surfaces_report_read_oserror(
