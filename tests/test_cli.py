@@ -868,6 +868,45 @@ def test_record_command_requires_setup_and_reference(xpiano_home: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_record_command_surfaces_midi_record_oserror(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr(
+        "xpiano.cli.midi_io.record",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("device busy")),
+    )
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code != 0
+    assert record_result.exception is not None
+    assert not isinstance(record_result.exception, OSError)
+
+
+def test_record_command_surfaces_save_attempt_oserror(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    monkeypatch.setattr(
+        "xpiano.cli.reference.save_attempt",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code != 0
+    assert record_result.exception is not None
+    assert not isinstance(record_result.exception, OSError)
+
+
 def test_record_passes_segment_context_to_analyze(
     sample_midi_path: Path,
     monkeypatch,

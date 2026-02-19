@@ -593,34 +593,37 @@ def record(
     duration_sec = measures * beats_per_measure * (60.0 / bpm)
     count_in_beats = count_in_measures * beats_per_measure
 
-    midi = midi_io.record(
-        port=input_port,
-        duration_sec=duration_sec,
-        count_in_beats=count_in_beats,
-        bpm=bpm,
-        output_port=output_port,
-        beats_per_measure=beats_per_measure,
-        beat_unit=beat_unit,
-    )
-    attempt_path = reference.save_attempt(
-        song_id=song, midi=midi, data_dir=data_dir)
-    result = analyze(
-        str(ref_path),
-        str(attempt_path),
-        meta,
-        segment_id=segment,
-        attempt_is_segment_relative=True,
-    )
-    report_data = build_report(
-        result=result,
-        meta=meta,
-        ref_path=ref_path,
-        attempt_path=attempt_path,
-        song_id=song,
-        segment_id=segment,
-    )
-    report_path = save_report(
-        report=report_data, song_id=song, data_dir=data_dir)
+    try:
+        midi = midi_io.record(
+            port=input_port,
+            duration_sec=duration_sec,
+            count_in_beats=count_in_beats,
+            bpm=bpm,
+            output_port=output_port,
+            beats_per_measure=beats_per_measure,
+            beat_unit=beat_unit,
+        )
+        attempt_path = reference.save_attempt(
+            song_id=song, midi=midi, data_dir=data_dir)
+        result = analyze(
+            str(ref_path),
+            str(attempt_path),
+            meta,
+            segment_id=segment,
+            attempt_is_segment_relative=True,
+        )
+        report_data = build_report(
+            result=result,
+            meta=meta,
+            ref_path=ref_path,
+            attempt_path=attempt_path,
+            song_id=song,
+            segment_id=segment,
+        )
+        report_path = save_report(
+            report=report_data, song_id=song, data_dir=data_dir)
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     console.print(f"Saved attempt: {attempt_path}")
     console.print(f"Saved report: {report_path}")
