@@ -716,7 +716,7 @@ def record_ref(
             output_port=output_port,
             data_dir=data_dir,
         )
-    except (FileNotFoundError, ValueError, OSError) as exc:
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved reference MIDI: {path}")
 
@@ -894,7 +894,7 @@ def playback(
             output_port=output_port,
             data_dir=data_dir,
         )
-    except (FileNotFoundError, ValueError, OSError) as exc:
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
@@ -944,7 +944,7 @@ def wait(
             on_wrong=_on_wrong,
             on_timeout=_on_timeout,
         )
-    except (FileNotFoundError, ValueError, OSError) as exc:
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(
         f"Wait mode: completed={result.completed}/{result.total_steps} errors={result.errors}"

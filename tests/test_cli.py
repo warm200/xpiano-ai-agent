@@ -1097,6 +1097,28 @@ def test_record_ref_command_requires_setup(xpiano_home: Path) -> None:
     assert result.exit_code != 0
 
 
+def test_record_ref_command_surfaces_runtime_error(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr(
+        "xpiano.cli.reference.record_reference",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("device disconnected")),
+    )
+
+    record_ref_result = runner.invoke(
+        app,
+        ["record-ref", "--song", "twinkle", "--segment", "default"],
+    )
+    assert record_ref_result.exit_code != 0
+    assert record_ref_result.exception is not None
+    assert not isinstance(record_ref_result.exception, RuntimeError)
+
+
 def test_record_full_tier_saves_coaching(
     sample_midi_path: Path,
     monkeypatch,
@@ -2361,6 +2383,21 @@ def test_playback_command_rejects_out_of_range_bpm() -> None:
     assert result.exit_code != 0
 
 
+def test_playback_command_surfaces_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("player unavailable")
+
+    monkeypatch.setattr("xpiano.cli.playback_play", _raise)
+    result = runner.invoke(
+        app,
+        ["playback", "--song", "twinkle", "--segment", "verse1", "--mode", "reference"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_wait_command_calls_engine(monkeypatch) -> None:
     monkeypatch.setattr(
         "xpiano.cli.run_wait_mode",
@@ -2451,6 +2488,21 @@ def test_wait_command_rejects_invalid_segment_range(xpiano_home: Path) -> None:
         ["wait", "--song", "twinkle", "--segment", "verse1"],
     )
     assert result.exit_code != 0
+
+
+def test_wait_command_surfaces_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("wait mode crashed")
+
+    monkeypatch.setattr("xpiano.cli.run_wait_mode", _raise)
+    result = runner.invoke(
+        app,
+        ["wait", "--song", "twinkle", "--segment", "verse1"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
 
 
 def test_history_and_compare_commands(monkeypatch) -> None:
