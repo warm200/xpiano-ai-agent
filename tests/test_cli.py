@@ -1888,6 +1888,72 @@ def test_coach_command_surfaces_save_coaching_oserror(
     assert not isinstance(result.exception, OSError)
 
 
+def test_coach_command_surfaces_save_coaching_runtime_error(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 7, "missing": 3, "extra": 1},
+            "match_rate": 0.7,
+            "top_problems": ["M1 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(ValueError("missing key")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: (_ for _ in ()).throw(RuntimeError("write failed")),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
+def test_coach_stream_fallback_surfaces_save_coaching_runtime_error(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 8, "missing": 2, "extra": 1},
+            "match_rate": 0.8,
+            "top_problems": ["M2 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(ValueError("missing key")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: (_ for _ in ()).throw(RuntimeError("write failed")),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle", "--stream"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_coach_stream_command_surfaces_runtime_errors(
     xpiano_home: Path,
     monkeypatch,

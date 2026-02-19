@@ -822,7 +822,7 @@ def coach(
             try:
                 output_path = save_coaching(
                     coaching=coaching, song_id=song, data_dir=data_dir)
-            except (ValueError, OSError) as exc:
+            except (ValueError, OSError, RuntimeError) as exc:
                 raise typer.BadParameter(str(exc)) from exc
             console.print(f"Saved coaching: {output_path}")
             console.print(f"Goal: {coaching.get('goal', '-')}")
@@ -860,7 +860,7 @@ def coach(
     try:
         output_path = save_coaching(
             coaching=coaching, song_id=song, data_dir=data_dir)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved coaching: {output_path}")
     console.print(f"Goal: {coaching.get('goal', '-')}")
