@@ -76,7 +76,10 @@ def load_config(data_dir: str | Path | None = None) -> dict[str, Any]:
         return copy.deepcopy(DEFAULT_CONFIG)
 
     with path.open("r", encoding="utf-8") as fp:
-        loaded = yaml.safe_load(fp) or {}
+        try:
+            loaded = yaml.safe_load(fp) or {}
+        except yaml.YAMLError:
+            loaded = {}
     if not isinstance(loaded, dict):
         loaded = {}
     merged = _deep_merge(DEFAULT_CONFIG, loaded)
