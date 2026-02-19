@@ -148,6 +148,49 @@ def test_list_songs_reports_reference(xpiano_home: Path, sample_midi_path: Path)
     assert songs[0].has_reference is True
 
 
+def test_list_songs_handles_invalid_meta_json(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    (song_dir / "meta.json").write_text("{bad", encoding="utf-8")
+    songs = reference.list_songs()
+    assert len(songs) == 1
+    assert songs[0].song_id == "twinkle"
+    assert songs[0].segments == 0
+
+
+def test_list_songs_handles_non_object_meta(xpiano_home: Path) -> None:
+    song_dir = xpiano_home / "songs" / "twinkle"
+    song_dir.mkdir(parents=True, exist_ok=True)
+    (song_dir / "meta.json").write_text("[]", encoding="utf-8")
+    songs = reference.list_songs()
+    assert len(songs) == 1
+    assert songs[0].segments == 0
+
+
+def test_list_songs_handles_stat_oserror(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    reference.import_reference(sample_midi_path, song_id="twinkle")
+    original_stat = reference.Path.stat
+    calls: dict[str, int] = {}
+
+    def _stat(path_obj: Path, *args, **kwargs):
+        if path_obj.name == "twinkle":
+            count = calls.get(path_obj.name, 0) + 1
+            calls[path_obj.name] = count
+            if count >= 2:
+                raise OSError("permission denied")
+        return original_stat(path_obj, *args, **kwargs)
+
+    monkeypatch.setattr(reference.Path, "stat", _stat)
+    songs = reference.list_songs()
+    assert len(songs) == 1
+    assert songs[0].song_id == "twinkle"
+    assert songs[0].updated_at is None
+
+
 def test_save_attempt_avoids_filename_collision(xpiano_home: Path, monkeypatch) -> None:
     class _FixedDateTime:
         @classmethod
