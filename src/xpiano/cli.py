@@ -473,7 +473,10 @@ def setup(
         }
     )
     meta["segments"] = sorted(segments, key=lambda seg: seg["segment_id"])
-    path = reference.save_meta(song_id=song, meta=meta, data_dir=data_dir)
+    try:
+        path = reference.save_meta(song_id=song, meta=meta, data_dir=data_dir)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved setup: {path}")
 
 

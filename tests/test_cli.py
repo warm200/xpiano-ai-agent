@@ -40,6 +40,32 @@ def test_setup_and_list_command(xpiano_home: Path) -> None:
     assert "twinkle" in result.stdout
 
 
+def test_setup_surfaces_save_meta_oserror(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.cli.reference.save_meta", _raise)
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--measures",
+            "4",
+        ],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_setup_trims_song_and_segment_identifiers(xpiano_home: Path) -> None:
     result = runner.invoke(
         app,
