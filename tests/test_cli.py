@@ -2033,6 +2033,43 @@ def test_coach_command_falls_back_when_provider_unavailable(
     assert "Saved coaching:" in result.stdout
 
 
+def test_coach_command_falls_back_when_get_coaching_fails(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 7, "missing": 3, "extra": 1},
+            "match_rate": 0.7,
+            "top_problems": ["M1 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: object())
+    monkeypatch.setattr(
+        "xpiano.cli.get_coaching",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("api timeout")),
+    )
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fallback_after_error.json"),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Coaching request failed, using fallback coaching" in result.stdout
+    assert "Saved coaching:" in result.stdout
+
+
 def test_coach_stream_command(
     xpiano_home: Path,
     monkeypatch,

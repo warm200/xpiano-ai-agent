@@ -839,11 +839,18 @@ def coach(
     if provider is None:
         coaching = fallback_output(report_payload)
     else:
-        coaching = get_coaching(
-            report=report_payload,
-            provider=provider,
-            max_retries=_resolve_max_retries(cfg),
-        )
+        try:
+            coaching = get_coaching(
+                report=report_payload,
+                provider=provider,
+                max_retries=_resolve_max_retries(cfg),
+            )
+        except Exception as exc:
+            console.print(
+                "Coaching request failed, using fallback coaching: "
+                + str(exc)
+            )
+            coaching = fallback_output(report_payload)
     try:
         output_path = save_coaching(
             coaching=coaching, song_id=song, data_dir=data_dir)
