@@ -51,14 +51,20 @@ def _normalize_tools(tools: list[dict] | None) -> list[dict] | None:
         if not isinstance(tool, dict):
             raise ValueError("invalid tool spec: expected mapping")
         if "input_schema" in tool:
+            input_schema = tool.get("input_schema")
+            if input_schema is not None and not isinstance(input_schema, dict):
+                raise ValueError("invalid tool spec: input_schema must be mapping")
             normalized.append(tool)
             continue
         if "parameters" in tool:
+            parameters = tool.get("parameters")
+            if parameters is not None and not isinstance(parameters, dict):
+                raise ValueError("invalid tool spec: parameters must be mapping")
             normalized.append(
                 {
                     "name": tool.get("name"),
                     "description": tool.get("description"),
-                    "input_schema": tool.get("parameters"),
+                    "input_schema": parameters,
                 }
             )
             continue

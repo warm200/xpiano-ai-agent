@@ -216,6 +216,70 @@ def test_claude_provider_stream_rejects_non_mapping_tool_spec(
         asyncio.run(_collect(provider))
 
 
+def test_claude_provider_stream_rejects_non_mapping_tool_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            return SimpleNamespace(content=[SimpleNamespace(text='{"goal":"ok"}')])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("stream should not run with invalid tool schema")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream(
+            "hello",
+            tools=[{"name": "playback_control", "parameters": "bad"}],  # type: ignore[list-item]
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(ValueError, match="parameters must be mapping"):
+        asyncio.run(_collect(provider))
+
+
+def test_claude_provider_stream_rejects_non_mapping_tool_input_schema(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            return SimpleNamespace(content=[SimpleNamespace(text='{"goal":"ok"}')])
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise AssertionError("stream should not run with invalid tool schema")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream(
+            "hello",
+            tools=[{"name": "playback_control", "input_schema": "bad"}],  # type: ignore[list-item]
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(ValueError, match="input_schema must be mapping"):
+        asyncio.run(_collect(provider))
+
+
 def test_claude_provider_stream_falls_back_to_generate(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeMessages:
         def create(self, **kwargs):
