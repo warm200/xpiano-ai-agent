@@ -507,11 +507,14 @@ def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     table.add_column("Missing/Extra")
     table.add_column("Updated")
     for song in songs:
-        history_rows = build_history(
-            song_id=song.song_id,
-            attempts=1,
-            data_dir=data_dir,
-        )
+        try:
+            history_rows = build_history(
+                song_id=song.song_id,
+                attempts=1,
+                data_dir=data_dir,
+            )
+        except (ValueError, OSError):
+            history_rows = []
         last_match = "-"
         last_problem = "-"
         if history_rows:
