@@ -655,7 +655,7 @@ def record(
                     data_dir=data_dir,
                     output_port=output_port,
                 )
-            except (ValueError, OSError) as exc:
+            except (ValueError, OSError, RuntimeError) as exc:
                 raise typer.BadParameter(str(exc)) from exc
             coaching, stream_errors = parse_coaching_text(streamed_text)
             if coaching is None:
@@ -678,7 +678,7 @@ def record(
         try:
             coaching_path = save_coaching(
                 coaching=coaching, song_id=song, data_dir=data_dir)
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, RuntimeError) as exc:
             raise typer.BadParameter(str(exc)) from exc
         console.print(f"Saved coaching: {coaching_path}")
         console.print(render_report(report_data, coaching=coaching))
@@ -828,7 +828,7 @@ def coach(
                 segment_id=segment_id,
                 data_dir=data_dir,
             )
-        except (ValueError, OSError) as exc:
+        except (ValueError, OSError, RuntimeError) as exc:
             raise typer.BadParameter(str(exc)) from exc
         console.print("Streaming coaching finished.")
         return
