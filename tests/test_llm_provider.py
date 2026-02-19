@@ -32,8 +32,8 @@ def test_create_provider_normalizes_provider_name(
         {
             "llm": {
                 "provider": "  ClAuDe  ",
-                "model": "model-x",
-                "api_key_env": "FAKE_API_KEY_ENV",
+                "model": "  model-x  ",
+                "api_key_env": "  FAKE_API_KEY_ENV  ",
                 "max_tool_rounds": 4,
             }
         }
@@ -42,6 +42,26 @@ def test_create_provider_normalizes_provider_name(
     assert captured["model"] == "model-x"
     assert captured["api_key_env"] == "FAKE_API_KEY_ENV"
     assert captured["max_tool_rounds"] == 4
+
+
+def test_create_provider_rejects_empty_model() -> None:
+    with pytest.raises(ValueError, match="invalid llm.model"):
+        create_provider({"llm": {"provider": "claude", "model": "   "}})
+
+
+def test_create_provider_rejects_non_string_model() -> None:
+    with pytest.raises(ValueError, match="invalid llm.model"):
+        create_provider({"llm": {"provider": "claude", "model": 123}})
+
+
+def test_create_provider_rejects_empty_api_key_env() -> None:
+    with pytest.raises(ValueError, match="invalid llm.api_key_env"):
+        create_provider({"llm": {"provider": "claude", "api_key_env": "   "}})
+
+
+def test_create_provider_rejects_non_string_api_key_env() -> None:
+    with pytest.raises(ValueError, match="invalid llm.api_key_env"):
+        create_provider({"llm": {"provider": "claude", "api_key_env": 7}})
 
 
 def test_create_provider_rejects_non_integer_max_tool_rounds() -> None:

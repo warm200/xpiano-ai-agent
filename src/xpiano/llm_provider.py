@@ -238,6 +238,18 @@ def create_provider(config_data: dict[str, Any]) -> LLMProvider:
     provider_name = str(llm_cfg.get("provider", "claude")).strip().lower()
     if provider_name != "claude":
         raise ValueError(f"unsupported llm provider: {provider_name}")
+    raw_model = llm_cfg.get("model", "claude-sonnet-4-5-20250929")
+    if not isinstance(raw_model, str):
+        raise ValueError("invalid llm.model: must be non-empty string")
+    model = raw_model.strip()
+    if not model:
+        raise ValueError("invalid llm.model: must be non-empty string")
+    raw_api_key_env = llm_cfg.get("api_key_env", "ANTHROPIC_API_KEY")
+    if not isinstance(raw_api_key_env, str):
+        raise ValueError("invalid llm.api_key_env: must be non-empty string")
+    api_key_env = raw_api_key_env.strip()
+    if not api_key_env:
+        raise ValueError("invalid llm.api_key_env: must be non-empty string")
     raw_max_tool_rounds = llm_cfg.get("max_tool_rounds", 8)
     if isinstance(raw_max_tool_rounds, bool):
         raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
@@ -252,7 +264,7 @@ def create_provider(config_data: dict[str, Any]) -> LLMProvider:
     if max_tool_rounds <= 0:
         raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
     return ClaudeProvider(
-        model=llm_cfg.get("model", "claude-sonnet-4-5-20250929"),
-        api_key_env=llm_cfg.get("api_key_env", "ANTHROPIC_API_KEY"),
+        model=model,
+        api_key_env=api_key_env,
         max_tool_rounds=max_tool_rounds,
     )
