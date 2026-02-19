@@ -234,6 +234,8 @@ class ClaudeProvider(LLMProvider):
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:
+    if not isinstance(config_data, dict):
+        raise ValueError("invalid config: expected mapping")
     llm_cfg = config_data.get("llm", {})
     if not isinstance(llm_cfg, dict):
         raise ValueError("invalid llm config: expected mapping")

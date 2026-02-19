@@ -13,6 +13,11 @@ def test_create_provider_rejects_unknown() -> None:
         create_provider({"llm": {"provider": "unknown"}})
 
 
+def test_create_provider_rejects_non_mapping_root_config() -> None:
+    with pytest.raises(ValueError, match="invalid config"):
+        create_provider([])  # type: ignore[arg-type]
+
+
 def test_create_provider_rejects_non_mapping_llm_config() -> None:
     with pytest.raises(ValueError, match="invalid llm config"):
         create_provider({"llm": []})
