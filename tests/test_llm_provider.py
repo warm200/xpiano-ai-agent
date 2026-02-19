@@ -148,6 +148,35 @@ def test_claude_provider_stream_falls_back_to_generate(monkeypatch: pytest.Monke
     assert events == [{"type": "text_delta", "text": '{"goal":"fallback"}'}]
 
 
+def test_claude_provider_stream_raises_runtime_when_fallback_generate_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            raise TypeError("bad response payload")
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise RuntimeError("stream failed")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream("hello"):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(RuntimeError, match="both failed"):
+        asyncio.run(_collect(provider))
+
+
 def test_claude_provider_stream_with_tool_results_round_trip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -261,6 +290,39 @@ def test_claude_provider_stream_with_tool_results_falls_back(
     provider = ClaudeProvider(api_key="test-key")
     events = asyncio.run(_collect(provider))
     assert events == [{"type": "text_delta", "text": "fallback-text"}]
+
+
+def test_claude_provider_stream_with_tool_results_raises_runtime_when_fallback_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeMessages:
+        def create(self, **kwargs):
+            _ = kwargs
+            raise RuntimeError("create failed")
+
+        def stream(self, **kwargs):
+            _ = kwargs
+            raise RuntimeError("stream failed")
+
+    class FakeClient:
+        def __init__(self, api_key: str):
+            _ = api_key
+            self.messages = FakeMessages()
+
+    async def _collect(provider: ClaudeProvider) -> list[dict]:
+        out: list[dict] = []
+        async for event in provider.stream_with_tool_results(
+            prompt="hello",
+            tools=None,
+            on_tool_use=lambda event: {"status": "played"},
+        ):
+            out.append(event)
+        return out
+
+    monkeypatch.setattr("xpiano.llm_provider.anthropic.Anthropic", FakeClient)
+    provider = ClaudeProvider(api_key="test-key")
+    with pytest.raises(RuntimeError, match="fallback both failed"):
+        asyncio.run(_collect(provider))
 
 
 def test_claude_provider_stream_with_tool_results_propagates_tool_errors(

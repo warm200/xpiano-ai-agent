@@ -123,7 +123,13 @@ class ClaudeProvider(LLMProvider):
                             }
         except Exception:
             # Degrade gracefully to non-streamed text.
-            yield {"type": "text_delta", "text": self.generate(prompt)}
+            try:
+                fallback_text = self.generate(prompt)
+            except Exception as exc:
+                raise RuntimeError(
+                    "Claude streaming and fallback generation both failed"
+                ) from exc
+            yield {"type": "text_delta", "text": fallback_text}
 
     async def stream_with_tool_results(
         self,
@@ -212,12 +218,17 @@ class ClaudeProvider(LLMProvider):
                 raise exc.__cause__
             raise
         except Exception:
-            async for event in super().stream_with_tool_results(
-                prompt=prompt,
-                tools=tools,
-                on_tool_use=on_tool_use,
-            ):
-                yield event
+            try:
+                async for event in super().stream_with_tool_results(
+                    prompt=prompt,
+                    tools=tools,
+                    on_tool_use=on_tool_use,
+                ):
+                    yield event
+            except Exception as exc:
+                raise RuntimeError(
+                    "Claude tool-result streaming and fallback both failed"
+                ) from exc
 
 
 def create_provider(config_data: dict[str, Any]) -> LLMProvider:
