@@ -675,8 +675,11 @@ def record(
                         + str(exc)
                     )
                     coaching = fallback_output(report_data)
-        coaching_path = save_coaching(
-            coaching=coaching, song_id=song, data_dir=data_dir)
+        try:
+            coaching_path = save_coaching(
+                coaching=coaching, song_id=song, data_dir=data_dir)
+        except (ValueError, OSError) as exc:
+            raise typer.BadParameter(str(exc)) from exc
         console.print(f"Saved coaching: {coaching_path}")
         console.print(render_report(report_data, coaching=coaching))
         console.print(f"quality_tier={result.quality_tier}")
@@ -807,8 +810,11 @@ def coach(
     if stream:
         if provider is None:
             coaching = fallback_output(report_payload)
-            output_path = save_coaching(
-                coaching=coaching, song_id=song, data_dir=data_dir)
+            try:
+                output_path = save_coaching(
+                    coaching=coaching, song_id=song, data_dir=data_dir)
+            except (ValueError, OSError) as exc:
+                raise typer.BadParameter(str(exc)) from exc
             console.print(f"Saved coaching: {output_path}")
             console.print(f"Goal: {coaching.get('goal', '-')}")
             return
@@ -835,8 +841,11 @@ def coach(
             provider=provider,
             max_retries=_resolve_max_retries(cfg),
         )
-    output_path = save_coaching(
-        coaching=coaching, song_id=song, data_dir=data_dir)
+    try:
+        output_path = save_coaching(
+            coaching=coaching, song_id=song, data_dir=data_dir)
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved coaching: {output_path}")
     console.print(f"Goal: {coaching.get('goal', '-')}")
     for issue in coaching.get("top_issues", [])[:3]:
