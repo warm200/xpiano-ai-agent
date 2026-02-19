@@ -797,6 +797,27 @@ def test_list_handles_history_load_oserror(xpiano_home: Path, monkeypatch) -> No
     assert "permission denied" not in list_result.stdout
 
 
+def test_list_handles_history_load_runtime_error(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    setup_result = runner.invoke(
+        app,
+        ["setup", "--song", "twinkle", "--segment", "verse1", "--bpm", "80", "--time-sig", "4/4", "--measures", "4"],
+    )
+    assert setup_result.exit_code == 0
+
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("history backend crashed")
+
+    monkeypatch.setattr("xpiano.cli.build_history", _raise)
+    list_result = runner.invoke(app, ["list"])
+    assert list_result.exit_code == 0
+    assert "twinkle" in list_result.stdout
+    assert "history backend crashed" not in list_result.stdout
+
+
 def test_import_command_accepts_segment(sample_midi_path: Path, xpiano_home: Path) -> None:
     result = runner.invoke(
         app,

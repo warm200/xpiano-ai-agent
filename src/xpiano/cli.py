@@ -525,7 +525,7 @@ def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
                 attempts=1,
                 data_dir=data_dir,
             )
-        except (ValueError, OSError):
+        except (ValueError, OSError, RuntimeError):
             history_rows = []
         last_match = "-"
         last_problem = "-"
