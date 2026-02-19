@@ -88,8 +88,13 @@ def build_report(
     segment_id: str | None = None,
 ) -> dict[str, Any]:
     resolved_song_id = song_id or str(meta.get("song_id", "unknown"))
-    resolved_segment_id = segment_id or str(
-        meta.get("segments", [{}])[0].get("segment_id", "default"))
+    meta_segments = meta.get("segments", [])
+    default_segment = "default"
+    if isinstance(meta_segments, list) and meta_segments:
+        first_segment = meta_segments[0]
+        if isinstance(first_segment, dict):
+            default_segment = str(first_segment.get("segment_id", "default"))
+    resolved_segment_id = segment_id or default_segment
     status = "low_quality" if result.quality_tier in {"simplified", "too_low"} else "ok"
     if result.quality_tier == "too_low":
         top_problem_limit = 0

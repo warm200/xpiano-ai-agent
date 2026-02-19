@@ -113,6 +113,30 @@ def test_report_build_and_save(tmp_path: Path, xpiano_home: Path) -> None:
     assert report_path.exists()
 
 
+def test_build_report_with_empty_segments_defaults_segment_id(
+    tmp_path: Path,
+) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    notes = [(0.0, 1.0, 60), (1.0, 1.0, 62), (2.0, 1.0, 64), (3.0, 1.0, 65)]
+    _write_midi(ref_mid, notes)
+    _write_midi(attempt_mid, notes)
+
+    result = analyze(str(ref_mid), str(attempt_mid), _meta())
+    invalid_meta = _meta()
+    invalid_meta["segments"] = []
+
+    report = build_report(
+        result=result,
+        meta=invalid_meta,
+        ref_path=ref_mid,
+        attempt_path=attempt_mid,
+        song_id="demo",
+        segment_id=None,
+    )
+    assert report["segment_id"] == "default"
+
+
 def test_save_report_avoids_filename_collision(xpiano_home: Path, monkeypatch) -> None:
     class _FixedDateTime:
         @classmethod
