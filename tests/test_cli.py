@@ -817,6 +817,14 @@ def test_report_command_rejects_empty_song() -> None:
     assert result.exit_code != 0
 
 
+def test_safe_note_name_falls_back_when_pretty_midi_raises(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.cli.pretty_midi.note_number_to_name",
+        lambda value: (_ for _ in ()).throw(ValueError("bad note")),
+    )
+    assert cli_module._safe_note_name(999) == "note_999"
+
+
 def _recorded_midi() -> mido.MidiFile:
     mid = mido.MidiFile(ticks_per_beat=480)
     track = mido.MidiTrack()

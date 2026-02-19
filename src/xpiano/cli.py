@@ -375,7 +375,7 @@ def _sorted_history_candidates(rows: list[dict]) -> list[dict]:
 def _safe_note_name(note_number: int) -> str:
     try:
         return pretty_midi.note_number_to_name(int(note_number))
-    except Exception:
+    except (TypeError, ValueError):
         return f"note_{note_number}"
 
 
