@@ -239,6 +239,8 @@ def create_provider(config_data: dict[str, Any]) -> LLMProvider:
     raw_max_tool_rounds = llm_cfg.get("max_tool_rounds", 8)
     if isinstance(raw_max_tool_rounds, bool):
         raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
+    if isinstance(raw_max_tool_rounds, float):
+        raise ValueError("invalid llm.max_tool_rounds: must be integer > 0")
     try:
         max_tool_rounds = int(raw_max_tool_rounds)
     except (TypeError, ValueError) as exc:
