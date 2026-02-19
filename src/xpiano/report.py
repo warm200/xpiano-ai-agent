@@ -179,7 +179,7 @@ def latest_valid_report_path(
     for path in reversed(paths):
         try:
             report = load_report(path)
-        except Exception:
+        except (FileNotFoundError, ValueError):
             continue
         report_segment = _normalize_segment_id(report.get("segment_id"))
         if target_segment is not None and report_segment != target_segment:
@@ -206,11 +206,13 @@ def build_history(
     for path in paths:
         try:
             report = load_report(path)
-        except Exception:
+        except FileNotFoundError:
+            continue
+        except ValueError:
             try:
                 with path.open("r", encoding="utf-8") as fp:
                     report = json.load(fp)
-            except Exception:
+            except (FileNotFoundError, ValueError):
                 continue
             if not isinstance(report, dict):
                 continue

@@ -87,6 +87,27 @@ def test_latest_valid_report_path_normalizes_whitespace_segment_id(
     assert resolved.name == "20260101_120000.json"
 
 
+def test_latest_valid_report_path_surfaces_report_read_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, "verse1")
+
+    def _raise(path):
+        _ = path
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.report.load_report", _raise)
+    try:
+        _ = latest_valid_report_path(song_id="twinkle", data_dir=xpiano_home)
+    except OSError as exc:
+        assert "permission denied" in str(exc)
+    else:
+        raise AssertionError("expected OSError")
+
+
 def test_build_history_rejects_non_positive_attempts(xpiano_home: Path) -> None:
     try:
         _ = build_history(song_id="twinkle", attempts=0, data_dir=xpiano_home)
@@ -252,3 +273,24 @@ def test_build_history_normalizes_whitespace_segment_id(
     )
     assert len(rows) == 1
     assert rows[0]["segment_id"] == "verse1"
+
+
+def test_build_history_surfaces_report_read_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports = xpiano_home / "songs" / "twinkle" / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+    _write_report(reports / "20260101_120000.json", 0.70, 3, 1, "verse1")
+
+    def _raise(path):
+        _ = path
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.report.load_report", _raise)
+    try:
+        _ = build_history(song_id="twinkle", attempts=5, data_dir=xpiano_home)
+    except OSError as exc:
+        assert "permission denied" in str(exc)
+    else:
+        raise AssertionError("expected OSError")
