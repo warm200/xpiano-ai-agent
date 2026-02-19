@@ -6,7 +6,7 @@ import mido
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def xpiano_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / ".xpiano"
     monkeypatch.setenv("XPIANO_HOME", str(home))

@@ -1305,7 +1305,10 @@ def test_record_full_tier_falls_back_when_provider_runtime_error(
 
     monkeypatch.setattr("xpiano.cli.midi_io.record",
                         lambda **_: _recorded_midi())
-    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")))
+    monkeypatch.setattr(
+        "xpiano.cli.create_provider",
+        lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")),
+    )
     monkeypatch.setattr(
         "xpiano.cli.save_coaching",
         lambda coaching, song_id, data_dir=None: Path("/tmp/fallback_coaching_runtime.json"),
@@ -2358,7 +2361,10 @@ def test_coach_command_falls_back_when_provider_runtime_error(
     }
     (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
 
-    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")))
+    monkeypatch.setattr(
+        "xpiano.cli.create_provider",
+        lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")),
+    )
     monkeypatch.setattr(
         "xpiano.cli.save_coaching",
         lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching_runtime.json"),
@@ -3622,8 +3628,24 @@ def test_compare_with_playback_skips_when_attempt_paths_resolve_same_file(
 
 def test_compare_accepts_latest_attempt_selector(monkeypatch) -> None:
     rows = [
-        {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
-        {"filename": "b.json", "segment_id": "verse1", "match_rate": 0.7, "missing": 3, "extra": 1, "matched": 7, "ref_notes": 10},
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+        },
     ]
     captured: dict[str, object] = {}
 
@@ -3695,8 +3717,24 @@ def test_compare_surfaces_build_history_runtime_error(monkeypatch) -> None:
 
 def test_compare_accepts_latest_attempt_selector_with_spaces(monkeypatch) -> None:
     rows = [
-        {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
-        {"filename": "b.json", "segment_id": "verse1", "match_rate": 0.7, "missing": 3, "extra": 1, "matched": 7, "ref_notes": 10},
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+        },
     ]
     captured: dict[str, object] = {}
 
@@ -3712,8 +3750,24 @@ def test_compare_accepts_latest_attempt_selector_with_spaces(monkeypatch) -> Non
 
 def test_compare_accepts_latest_attempt_selector_with_spaced_dash(monkeypatch) -> None:
     rows = [
-        {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
-        {"filename": "b.json", "segment_id": "verse1", "match_rate": 0.7, "missing": 3, "extra": 1, "matched": 7, "ref_notes": 10},
+        {
+            "filename": "a.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+        },
+        {
+            "filename": "b.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+        },
     ]
     captured: dict[str, object] = {}
 

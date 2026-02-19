@@ -6,8 +6,7 @@ from pathlib import Path
 import mido
 import pytest
 
-from xpiano.analysis import analyze
-from xpiano.analysis import AnalysisResult
+from xpiano.analysis import AnalysisResult, analyze
 from xpiano.models import AlignmentResult, AnalysisEvent
 from xpiano.reference import save_meta
 from xpiano.report import build_report, save_report
@@ -417,11 +416,51 @@ def test_report_limits_top_problems_for_simplified_quality(tmp_path: Path) -> No
         ref_notes=[],
         attempt_notes=[],
         events=[
-            AnalysisEvent(type="missing_note", measure=1, beat=1.0, pitch=60, pitch_name="C4", hand="R", severity="high"),
-            AnalysisEvent(type="extra_note", measure=2, beat=1.0, pitch=61, pitch_name="C#4", hand="R", severity="med"),
-            AnalysisEvent(type="wrong_pitch", measure=3, beat=1.0, pitch=62, pitch_name="D4", hand="R", severity="high"),
-            AnalysisEvent(type="timing_late", measure=4, beat=1.0, pitch=63, pitch_name="D#4", hand="R", severity="low"),
-            AnalysisEvent(type="duration_short", measure=5, beat=1.0, pitch=64, pitch_name="E4", hand="R", severity="med"),
+            AnalysisEvent(
+                type="missing_note",
+                measure=1,
+                beat=1.0,
+                pitch=60,
+                pitch_name="C4",
+                hand="R",
+                severity="high",
+            ),
+            AnalysisEvent(
+                type="extra_note",
+                measure=2,
+                beat=1.0,
+                pitch=61,
+                pitch_name="C#4",
+                hand="R",
+                severity="med",
+            ),
+            AnalysisEvent(
+                type="wrong_pitch",
+                measure=3,
+                beat=1.0,
+                pitch=62,
+                pitch_name="D4",
+                hand="R",
+                severity="high",
+            ),
+            AnalysisEvent(
+                type="timing_late",
+                measure=4,
+                beat=1.0,
+                pitch=63,
+                pitch_name="D#4",
+                hand="R",
+                severity="low",
+            ),
+            AnalysisEvent(
+                type="duration_short",
+                measure=5,
+                beat=1.0,
+                pitch=64,
+                pitch_name="E4",
+                hand="R",
+                severity="med",
+            ),
         ],
         metrics={"timing": {}, "duration": {}, "dynamics": {}},
         match_rate=0.3,
@@ -445,9 +484,33 @@ def test_report_hides_top_problems_for_too_low_quality(tmp_path: Path) -> None:
         ref_notes=[],
         attempt_notes=[],
         events=[
-            AnalysisEvent(type="missing_note", measure=1, beat=1.0, pitch=60, pitch_name="C4", hand="R", severity="high"),
-            AnalysisEvent(type="extra_note", measure=2, beat=1.0, pitch=61, pitch_name="C#4", hand="R", severity="med"),
-            AnalysisEvent(type="wrong_pitch", measure=3, beat=1.0, pitch=62, pitch_name="D4", hand="R", severity="high"),
+            AnalysisEvent(
+                type="missing_note",
+                measure=1,
+                beat=1.0,
+                pitch=60,
+                pitch_name="C4",
+                hand="R",
+                severity="high",
+            ),
+            AnalysisEvent(
+                type="extra_note",
+                measure=2,
+                beat=1.0,
+                pitch=61,
+                pitch_name="C#4",
+                hand="R",
+                severity="med",
+            ),
+            AnalysisEvent(
+                type="wrong_pitch",
+                measure=3,
+                beat=1.0,
+                pitch=62,
+                pitch_name="D4",
+                hand="R",
+                severity="high",
+            ),
         ],
         metrics={"timing": {}, "duration": {}, "dynamics": {}},
         match_rate=0.05,

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, AsyncIterator
+from typing import Any
 
-from xpiano.llm_coach import (_validate_playback_payload, build_coaching_prompt,
-                              fallback_output, get_coaching,
-                              parse_coaching_text, save_coaching,
+from xpiano.llm_coach import (_validate_playback_payload,
+                              build_coaching_prompt, fallback_output,
+                              get_coaching, parse_coaching_text, save_coaching,
                               stream_coaching)
 from xpiano.llm_provider import LLMProvider
 from xpiano.models import PlayResult
