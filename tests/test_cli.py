@@ -1177,6 +1177,29 @@ def test_record_full_tier_falls_back_when_provider_unavailable(
     assert "Saved coaching:" in record_result.stdout
 
 
+def test_record_full_tier_falls_back_when_provider_runtime_error(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record",
+                        lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fallback_coaching_runtime.json"),
+    )
+
+    record_result = runner.invoke(
+        app, ["record", "--song", "twinkle", "--segment", "default"])
+    assert record_result.exit_code == 0
+    assert "Provider unavailable" in record_result.stdout
+    assert "Saved coaching:" in record_result.stdout
+
+
 def test_record_full_tier_surfaces_save_coaching_oserror(
     sample_midi_path: Path,
     monkeypatch,
@@ -2118,6 +2141,39 @@ def test_coach_command_falls_back_when_provider_unavailable(
     monkeypatch.setattr(
         "xpiano.cli.save_coaching",
         lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching.json"),
+    )
+    result = runner.invoke(app, ["coach", "--song", "twinkle"])
+    assert result.exit_code == 0
+    assert "Provider unavailable" in result.stdout
+    assert "Saved coaching:" in result.stdout
+
+
+def test_coach_command_falls_back_when_provider_runtime_error(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    reports_dir = xpiano_home / "songs" / "twinkle" / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_payload = {
+        "version": "0.1",
+        "song_id": "twinkle",
+        "segment_id": "verse1",
+        "status": "ok",
+        "inputs": {"reference_mid": "ref.mid", "attempt_mid": "att.mid", "meta": {}},
+        "summary": {
+            "counts": {"ref_notes": 10, "attempt_notes": 10, "matched": 7, "missing": 3, "extra": 1},
+            "match_rate": 0.7,
+            "top_problems": ["M1 wrong_pitch x2"],
+        },
+        "metrics": {"timing": {}, "duration": {}, "dynamics": {}},
+        "events": [],
+    }
+    (reports_dir / "20260101_120000.json").write_text(json.dumps(report_payload), encoding="utf-8")
+
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: (_ for _ in ()).throw(RuntimeError("provider init failed")))
+    monkeypatch.setattr(
+        "xpiano.cli.save_coaching",
+        lambda coaching, song_id, data_dir=None: Path("/tmp/fake_coaching_runtime.json"),
     )
     result = runner.invoke(app, ["coach", "--song", "twinkle"])
     assert result.exit_code == 0

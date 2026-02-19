@@ -648,7 +648,7 @@ def record(
         provider = None
         try:
             provider = create_provider(cfg)
-        except Exception as exc:
+        except (ValueError, OSError, RuntimeError) as exc:
             console.print(f"Provider unavailable, using fallback coaching: {exc}")
 
         if provider is None:
@@ -813,7 +813,7 @@ def coach(
     provider = None
     try:
         provider = create_provider(cfg)
-    except Exception as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         console.print(f"Provider unavailable, using fallback coaching: {exc}")
 
     if stream:
