@@ -104,7 +104,7 @@ def _pitch_names_to_numbers(values: list[str] | None) -> set[int]:
                 continue
             try:
                 out.add(int(pretty_midi.note_name_to_number(normalized)))
-            except Exception:
+            except (TypeError, ValueError):
                 invalid.append(normalized)
     if invalid:
         raise ValueError(
