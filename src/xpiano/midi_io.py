@@ -20,12 +20,12 @@ def list_devices() -> list[MidiDevice]:
     try:
         devices.extend(MidiDevice(name=name, kind="input")
                        for name in mido.get_input_names())
-    except Exception:
+    except (OSError, RuntimeError):
         pass
     try:
         devices.extend(MidiDevice(name=name, kind="output")
                        for name in mido.get_output_names())
-    except Exception:
+    except (OSError, RuntimeError):
         pass
     return devices
 
@@ -133,7 +133,7 @@ def play_midi(
     outputs = []
     try:
         outputs = mido.get_output_names()
-    except Exception:
+    except (OSError, RuntimeError):
         outputs = []
     if not outputs:
         return PlayResult(status="no_device", duration_sec=0.0)

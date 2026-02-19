@@ -35,6 +35,31 @@ def test_record_writes_configured_time_signature(monkeypatch) -> None:
     assert time_sig_msgs[0].denominator == 8
 
 
+def test_list_devices_returns_empty_when_backend_queries_fail(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.get_input_names",
+        lambda: (_ for _ in ()).throw(OSError("input backend unavailable")),
+    )
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.get_output_names",
+        lambda: (_ for _ in ()).throw(RuntimeError("output backend unavailable")),
+    )
+    devices = midi_io.list_devices()
+    assert devices == []
+
+
+def test_list_devices_keeps_output_when_input_query_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.get_input_names",
+        lambda: (_ for _ in ()).throw(OSError("input backend unavailable")),
+    )
+    monkeypatch.setattr("xpiano.midi_io.mido.get_output_names", lambda: ["Mock Out"])
+    devices = midi_io.list_devices()
+    assert len(devices) == 1
+    assert devices[0].kind == "output"
+    assert devices[0].name == "Mock Out"
+
+
 def test_record_rejects_non_positive_beats_per_measure() -> None:
     try:
         _ = midi_io.record(
@@ -195,3 +220,16 @@ def test_play_midi_rejects_end_before_start() -> None:
         assert "end_sec must be >= start_sec" in str(exc)
     else:
         raise AssertionError("expected ValueError when end_sec < start_sec")
+
+
+def test_play_midi_returns_no_device_when_output_query_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.get_output_names",
+        lambda: (_ for _ in ()).throw(RuntimeError("output backend unavailable")),
+    )
+    result = midi_io.play_midi(
+        port=None,
+        midi=midi_io.mido.MidiFile(),
+    )
+    assert result.status == "no_device"
+    assert result.duration_sec == 0.0
