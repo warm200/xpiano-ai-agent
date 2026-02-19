@@ -146,7 +146,14 @@ def _measures_str(value: object) -> str | None:
 
 
 def _resolve_max_retries(cfg: dict) -> int:
-    raw_value = cfg.get("llm", {}).get("max_retries", 3)
+    llm_cfg = cfg.get("llm", {})
+    if not isinstance(llm_cfg, dict):
+        return 3
+    raw_value = llm_cfg.get("max_retries", 3)
+    if isinstance(raw_value, bool):
+        return 3
+    if isinstance(raw_value, float):
+        return 3
     try:
         parsed = int(raw_value)
     except (TypeError, ValueError):

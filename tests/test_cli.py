@@ -3735,3 +3735,16 @@ def test_history_rejects_invalid_attempt_selector() -> None:
 def test_history_rejects_malformed_attempt_selector() -> None:
     result = runner.invoke(app, ["history", "--song", "twinkle", "--attempts", "latest--3"])
     assert result.exit_code != 0
+
+
+def test_resolve_max_retries_defaults_for_non_mapping_llm_config() -> None:
+    assert cli_module._resolve_max_retries({"llm": []}) == 3
+
+
+def test_resolve_max_retries_defaults_for_bool_and_float() -> None:
+    assert cli_module._resolve_max_retries({"llm": {"max_retries": True}}) == 3
+    assert cli_module._resolve_max_retries({"llm": {"max_retries": 2.5}}) == 3
+
+
+def test_resolve_max_retries_parses_positive_integer_string() -> None:
+    assert cli_module._resolve_max_retries({"llm": {"max_retries": " 5 "}}) == 5
