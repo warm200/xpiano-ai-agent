@@ -159,10 +159,20 @@ def save_report(report: dict[str, Any], song_id: str, data_dir: str | Path | Non
 
 
 def list_reports(song_id: str, data_dir: str | Path | None = None) -> list[Path]:
-    reports_dir = song_dir(song_id=song_id, data_dir=data_dir) / "reports"
-    if not reports_dir.exists():
+    try:
+        reports_dir = song_dir(song_id=song_id, data_dir=data_dir) / "reports"
+    except OSError:
         return []
-    return sorted(reports_dir.glob("*.json"))
+    try:
+        has_reports = reports_dir.exists()
+    except OSError:
+        return []
+    if not has_reports:
+        return []
+    try:
+        return sorted(reports_dir.glob("*.json"))
+    except OSError:
+        return []
 
 
 def load_report(path: str | Path) -> dict[str, Any]:

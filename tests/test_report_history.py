@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from xpiano.report import build_history, latest_valid_report_path
+from xpiano.report import build_history, latest_valid_report_path, list_reports
 
 
 def _write_report(path: Path, match_rate: float, missing: int, extra: int, segment: str = "verse1") -> None:
@@ -56,6 +56,31 @@ def test_latest_valid_report_path_skips_invalid_latest(xpiano_home: Path) -> Non
 
     resolved = latest_valid_report_path(song_id="twinkle", data_dir=xpiano_home)
     assert resolved.name == "20260101_120000.json"
+
+
+def test_list_reports_returns_empty_when_song_dir_fails(monkeypatch) -> None:
+    def _raise(song_id: str, data_dir=None):
+        _ = song_id, data_dir
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.report.song_dir", _raise)
+    rows = list_reports(song_id="twinkle")
+    assert rows == []
+
+
+def test_list_reports_returns_empty_when_reports_exists_fails(monkeypatch) -> None:
+    class _BadReportsDir:
+        def exists(self) -> bool:
+            raise OSError("permission denied")
+
+    class _BadSongDir:
+        def __truediv__(self, key: str):
+            _ = key
+            return _BadReportsDir()
+
+    monkeypatch.setattr("xpiano.report.song_dir", lambda **kwargs: _BadSongDir())
+    rows = list_reports(song_id="twinkle")
+    assert rows == []
 
 
 def test_latest_valid_report_path_filters_segment(xpiano_home: Path) -> None:
