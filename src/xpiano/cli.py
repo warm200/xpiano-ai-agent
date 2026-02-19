@@ -478,7 +478,7 @@ def setup(
     meta["segments"] = sorted(segments, key=lambda seg: seg["segment_id"])
     try:
         path = reference.save_meta(song_id=song, meta=meta, data_dir=data_dir)
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(f"Saved setup: {path}")
 
@@ -496,7 +496,7 @@ def import_song(
     try:
         path = reference.import_reference(
             midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)
-    except (FileNotFoundError, ValueError, OSError) as exc:
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     console.print(f"Imported reference MIDI: {path}")
 
@@ -506,7 +506,7 @@ def list_song(data_dir: Path | None = typer.Option(None, "--data-dir")) -> None:
     config.ensure_config(data_dir=data_dir)
     try:
         songs = reference.list_songs(data_dir=data_dir)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     if not songs:
         console.print("No songs configured.")
@@ -561,7 +561,7 @@ def record(
     try:
         meta = reference.load_meta(song_id=song, data_dir=data_dir)
         ref_path = reference.reference_midi_path(song_id=song, data_dir=data_dir)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     segment_cfg = _segment_meta(meta, segment_id=segment)
 
@@ -970,7 +970,7 @@ def history(
             attempts=attempt_count,
             data_dir=data_dir,
         )
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     if not rows:
         console.print("No report history.")
@@ -1017,7 +1017,7 @@ def compare(
             attempts=max(2, attempt_count),
             data_dir=data_dir,
         )
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     if len(rows) < 2:
         console.print("Need at least 2 reports to compare.")
@@ -1157,7 +1157,7 @@ def compare(
         if latest_status == "no_device":
             console.print("Playback skipped: no MIDI output device.")
             return
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     console.print(

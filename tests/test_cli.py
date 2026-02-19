@@ -66,6 +66,21 @@ def test_list_command_surfaces_list_songs_oserror(
     assert not isinstance(result.exception, OSError)
 
 
+def test_list_command_surfaces_list_songs_runtime_error(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    monkeypatch.setattr(
+        "xpiano.cli.reference.list_songs",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("backend crashed")),
+    )
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_setup_surfaces_save_meta_oserror(monkeypatch) -> None:
     def _raise(**kwargs):
         _ = kwargs
@@ -90,6 +105,33 @@ def test_setup_surfaces_save_meta_oserror(monkeypatch) -> None:
     )
     assert result.exit_code != 0
     assert result.exception is not None
+
+
+def test_setup_surfaces_save_meta_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("metadata backend crashed")
+
+    monkeypatch.setattr("xpiano.cli.reference.save_meta", _raise)
+    result = runner.invoke(
+        app,
+        [
+            "setup",
+            "--song",
+            "twinkle",
+            "--segment",
+            "verse1",
+            "--bpm",
+            "80",
+            "--time-sig",
+            "4/4",
+            "--measures",
+            "4",
+        ],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
 
 
 def test_setup_trims_song_and_segment_identifiers(xpiano_home: Path) -> None:
@@ -819,6 +861,24 @@ def test_import_command_surfaces_reference_oserror(
     assert result.exception is not None
 
 
+def test_import_command_surfaces_reference_runtime_error(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("import backend crashed")
+
+    monkeypatch.setattr("xpiano.cli.reference.import_reference", _raise)
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "twinkle"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_playback_command_rejects_empty_segment() -> None:
     result = runner.invoke(
         app,
@@ -1095,6 +1155,21 @@ def test_record_ref_command_requires_setup(xpiano_home: Path) -> None:
     _ = xpiano_home
     result = runner.invoke(app, ["record-ref", "--song", "twinkle", "--segment", "default"])
     assert result.exit_code != 0
+
+
+def test_record_command_surfaces_meta_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("meta read crashed")
+
+    monkeypatch.setattr("xpiano.cli.reference.load_meta", _raise)
+    result = runner.invoke(
+        app,
+        ["record", "--song", "twinkle", "--segment", "default"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
 
 
 def test_record_ref_command_surfaces_runtime_error(
@@ -2865,6 +2940,62 @@ def test_compare_with_playback_replays_before_and_latest(
     assert "Playback compare:" in result.stdout
 
 
+def test_compare_with_playback_surfaces_runtime_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    prev_report = tmp_path / "prev_report.json"
+    curr_report = tmp_path / "curr_report.json"
+    prev_report.write_text("{}", encoding="utf-8")
+    curr_report.write_text("{}", encoding="utf-8")
+    prev_attempt = tmp_path / "prev.mid"
+    curr_attempt = tmp_path / "curr.mid"
+    prev_attempt.write_bytes(b"prev")
+    curr_attempt.write_bytes(b"curr")
+    rows = [
+        {
+            "filename": "prev_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.4,
+            "missing": 6,
+            "extra": 2,
+            "matched": 4,
+            "ref_notes": 10,
+            "path": str(prev_report),
+        },
+        {
+            "filename": "curr_report.json",
+            "segment_id": "verse1",
+            "match_rate": 0.7,
+            "missing": 3,
+            "extra": 1,
+            "matched": 7,
+            "ref_notes": 10,
+            "path": str(curr_report),
+        },
+    ]
+    monkeypatch.setattr("xpiano.cli.build_history", lambda **kwargs: rows)
+    monkeypatch.setattr(
+        "xpiano.cli.load_report",
+        lambda path: {
+            "inputs": {
+                "attempt_mid": str(prev_attempt if "prev_report" in str(path) else curr_attempt)
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "xpiano.cli._play_attempt_file",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("playback backend crashed")),
+    )
+    result = runner.invoke(
+        app,
+        ["compare", "--song", "twinkle", "--playback", "--delay-between", "0"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_compare_with_playback_resolves_relative_attempt_paths(
     tmp_path: Path,
     monkeypatch,
@@ -3506,6 +3637,18 @@ def test_history_surfaces_build_history_oserror(monkeypatch) -> None:
     assert result.exception is not None
 
 
+def test_history_surfaces_build_history_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("history backend crashed")
+
+    monkeypatch.setattr("xpiano.cli.build_history", _raise)
+    result = runner.invoke(app, ["history", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
+
+
 def test_compare_surfaces_build_history_oserror(monkeypatch) -> None:
     def _raise(**kwargs):
         _ = kwargs
@@ -3515,6 +3658,18 @@ def test_compare_surfaces_build_history_oserror(monkeypatch) -> None:
     result = runner.invoke(app, ["compare", "--song", "twinkle"])
     assert result.exit_code != 0
     assert result.exception is not None
+
+
+def test_compare_surfaces_build_history_runtime_error(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise RuntimeError("history backend crashed")
+
+    monkeypatch.setattr("xpiano.cli.build_history", _raise)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+    assert not isinstance(result.exception, RuntimeError)
 
 
 def test_compare_accepts_latest_attempt_selector_with_spaces(monkeypatch) -> None:
