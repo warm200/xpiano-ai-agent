@@ -919,12 +919,15 @@ def history(
     song = _require_song(song)
     segment = _require_optional_segment(segment)
     attempt_count = _parse_attempts(attempts)
-    rows = build_history(
-        song_id=song,
-        segment_id=segment,
-        attempts=attempt_count,
-        data_dir=data_dir,
-    )
+    try:
+        rows = build_history(
+            song_id=song,
+            segment_id=segment,
+            attempts=attempt_count,
+            data_dir=data_dir,
+        )
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     if not rows:
         console.print("No report history.")
         return
@@ -963,12 +966,15 @@ def compare(
     if delay_between < 0:
         raise typer.BadParameter("delay-between must be >= 0")
     attempt_count = _parse_attempts(attempts)
-    rows = build_history(
-        song_id=song,
-        segment_id=segment,
-        attempts=max(2, attempt_count),
-        data_dir=data_dir,
-    )
+    try:
+        rows = build_history(
+            song_id=song,
+            segment_id=segment,
+            attempts=max(2, attempt_count),
+            data_dir=data_dir,
+        )
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     if len(rows) < 2:
         console.print("Need at least 2 reports to compare.")
         return

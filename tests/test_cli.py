@@ -2905,6 +2905,28 @@ def test_history_handles_malformed_history_rows(monkeypatch) -> None:
     assert "0.00" in result.stdout
 
 
+def test_history_surfaces_build_history_oserror(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.cli.build_history", _raise)
+    result = runner.invoke(app, ["history", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
+def test_compare_surfaces_build_history_oserror(monkeypatch) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.cli.build_history", _raise)
+    result = runner.invoke(app, ["compare", "--song", "twinkle"])
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_compare_accepts_latest_attempt_selector_with_spaces(monkeypatch) -> None:
     rows = [
         {"filename": "a.json", "segment_id": "verse1", "match_rate": 0.4, "missing": 6, "extra": 2, "matched": 4, "ref_notes": 10},
