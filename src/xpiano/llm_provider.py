@@ -48,6 +48,8 @@ def _normalize_tools(tools: list[dict] | None) -> list[dict] | None:
         return None
     normalized: list[dict] = []
     for tool in tools:
+        if not isinstance(tool, dict):
+            raise ValueError("invalid tool spec: expected mapping")
         if "input_schema" in tool:
             normalized.append(tool)
             continue
