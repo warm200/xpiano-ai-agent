@@ -52,10 +52,12 @@ def songs_path(data_dir: str | Path | None = None) -> Path:
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = copy.deepcopy(base)
     for key, value in override.items():
-        if isinstance(result.get(key), dict) and isinstance(value, dict):
-            result[key] = _deep_merge(result[key], value)
-        else:
-            result[key] = value
+        base_value = result.get(key)
+        if isinstance(base_value, dict):
+            if isinstance(value, dict):
+                result[key] = _deep_merge(base_value, value)
+            continue
+        result[key] = value
     return result
 
 
