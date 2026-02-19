@@ -487,8 +487,11 @@ def import_song(
     song = _require_song(song)
     segment = _require_optional_segment(segment)
     config.ensure_config(data_dir=data_dir)
-    path = reference.import_reference(
-        midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)
+    try:
+        path = reference.import_reference(
+            midi_path=file, song_id=song, data_dir=data_dir, segment_id=segment)
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
     console.print(f"Imported reference MIDI: {path}")
 
 

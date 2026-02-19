@@ -750,6 +750,23 @@ def test_import_command_rejects_segment_with_path_separator(sample_midi_path: Pa
     assert result.exit_code != 0
 
 
+def test_import_command_surfaces_reference_oserror(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    def _raise(**kwargs):
+        _ = kwargs
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("xpiano.cli.reference.import_reference", _raise)
+    result = runner.invoke(
+        app,
+        ["import", "--file", str(sample_midi_path), "--song", "twinkle"],
+    )
+    assert result.exit_code != 0
+    assert result.exception is not None
+
+
 def test_playback_command_rejects_empty_segment() -> None:
     result = runner.invoke(
         app,
