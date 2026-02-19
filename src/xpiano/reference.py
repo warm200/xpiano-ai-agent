@@ -223,7 +223,11 @@ def load_meta(song_id: str, data_dir: str | Path | None = None) -> dict[str, Any
 
 def list_songs(data_dir: str | Path | None = None) -> list[SongInfo]:
     items: list[SongInfo] = []
-    for item in sorted(songs_dir(data_dir).iterdir()):
+    try:
+        entries = sorted(songs_dir(data_dir).iterdir())
+    except OSError:
+        return items
+    for item in entries:
         try:
             is_directory = item.is_dir()
         except OSError:
@@ -233,7 +237,11 @@ def list_songs(data_dir: str | Path | None = None) -> list[SongInfo]:
         meta_file = item / "meta.json"
         ref_file = item / "reference.mid"
         segments = 0
-        if meta_file.exists():
+        try:
+            has_meta = meta_file.exists()
+        except OSError:
+            has_meta = False
+        if has_meta:
             try:
                 with meta_file.open("r", encoding="utf-8") as fp:
                     meta_data = json.load(fp)
@@ -249,10 +257,14 @@ def list_songs(data_dir: str | Path | None = None) -> list[SongInfo]:
                 item.stat().st_mtime).isoformat(timespec="seconds")
         except OSError:
             updated_at = None
+        try:
+            has_reference = ref_file.exists()
+        except OSError:
+            has_reference = False
         items.append(
             SongInfo(
                 song_id=item.name,
-                has_reference=ref_file.exists(),
+                has_reference=has_reference,
                 segments=segments,
                 updated_at=updated_at,
             )

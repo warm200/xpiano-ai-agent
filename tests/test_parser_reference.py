@@ -191,6 +191,63 @@ def test_list_songs_handles_stat_oserror(
     assert songs[0].updated_at is None
 
 
+def test_list_songs_handles_meta_exists_oserror(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    reference.import_reference(sample_midi_path, song_id="twinkle")
+    original_exists = reference.Path.exists
+
+    def _exists(path_obj: Path, *args, **kwargs):
+        if path_obj.name == "meta.json":
+            raise OSError("permission denied")
+        return original_exists(path_obj, *args, **kwargs)
+
+    monkeypatch.setattr(reference.Path, "exists", _exists)
+    songs = reference.list_songs()
+    assert len(songs) == 1
+    assert songs[0].song_id == "twinkle"
+    assert songs[0].segments == 0
+
+
+def test_list_songs_handles_reference_exists_oserror(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    reference.import_reference(sample_midi_path, song_id="twinkle")
+    original_exists = reference.Path.exists
+
+    def _exists(path_obj: Path, *args, **kwargs):
+        if path_obj.name == "reference.mid":
+            raise OSError("permission denied")
+        return original_exists(path_obj, *args, **kwargs)
+
+    monkeypatch.setattr(reference.Path, "exists", _exists)
+    songs = reference.list_songs()
+    assert len(songs) == 1
+    assert songs[0].song_id == "twinkle"
+    assert songs[0].has_reference is False
+
+
+def test_list_songs_handles_iterdir_oserror(
+    xpiano_home: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    original_iterdir = reference.Path.iterdir
+
+    def _iterdir(path_obj: Path):
+        if path_obj.name == "songs":
+            raise OSError("permission denied")
+        return original_iterdir(path_obj)
+
+    monkeypatch.setattr(reference.Path, "iterdir", _iterdir)
+    songs = reference.list_songs()
+    assert songs == []
+
+
 def test_save_attempt_avoids_filename_collision(xpiano_home: Path, monkeypatch) -> None:
     class _FixedDateTime:
         @classmethod
