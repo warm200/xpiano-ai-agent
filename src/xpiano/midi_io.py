@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from threading import Event, Thread
 from typing import Literal
 
 import mido
@@ -44,16 +45,41 @@ def _click_count_in(count_in_beats: int, bpm: float, output_port: str | None) ->
             time.sleep(max(0.0, beat_sec - min(0.08, beat_sec / 2)))
 
 
+def _should_skip_record_message(msg: mido.Message) -> bool:
+    # MIDI realtime packets (clock/start/stop/etc.) are not valid in MIDI files.
+    return bool(getattr(msg, "is_meta", False) or getattr(msg, "is_realtime", False))
+
+
+def _start_enter_listener(stop_on_enter: bool) -> Event | None:
+    if not stop_on_enter:
+        return None
+    stop_event = Event()
+
+    def _wait_for_enter() -> None:
+        try:
+            _ = input()
+        except (EOFError, KeyboardInterrupt):
+            return
+        stop_event.set()
+
+    Thread(target=_wait_for_enter, daemon=True).start()
+    return stop_event
+
+
 def record(
     port: str | None,
-    duration_sec: float,
+    duration_sec: float | None,
     count_in_beats: int,
     bpm: float,
     output_port: str | None = None,
     beats_per_measure: int = 4,
     beat_unit: int = 4,
+    stop_on_enter: bool = False,
 ) -> mido.MidiFile:
-    if duration_sec <= 0:
+    if duration_sec is None:
+        if not stop_on_enter:
+            raise ValueError("duration_sec must be > 0")
+    elif duration_sec <= 0:
         raise ValueError("duration_sec must be > 0")
     if bpm < 20 or bpm > 240:
         raise ValueError("bpm must be in range 20..240")
@@ -85,8 +111,14 @@ def record(
 
     start = time.monotonic()
     last_msg_time = start
+    stop_event = _start_enter_listener(stop_on_enter=stop_on_enter)
     with mido.open_input(port) as in_port:
-        while (time.monotonic() - start) < duration_sec:
+        while True:
+            elapsed = time.monotonic() - start
+            if duration_sec is not None and elapsed >= duration_sec:
+                break
+            if stop_event is not None and stop_event.is_set():
+                break
             now = time.monotonic()
             pending = list(in_port.iter_pending())
             if not pending:
@@ -96,7 +128,7 @@ def record(
                 delta_sec = max(0.0, now - last_msg_time)
                 delta_ticks = int(mido.second2tick(
                     delta_sec, midi.ticks_per_beat, tempo))
-                if msg.is_meta:
+                if _should_skip_record_message(msg):
                     continue
                 track.append(msg.copy(time=delta_ticks))
                 last_msg_time = now

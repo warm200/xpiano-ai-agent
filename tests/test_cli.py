@@ -959,6 +959,7 @@ def test_record_and_report_commands(
 
     monkeypatch.setattr("xpiano.cli.midi_io.record",
                         lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: None)
     record_result = runner.invoke(
         app, ["record", "--song", "twinkle", "--segment", "default"])
     assert record_result.exit_code == 0
@@ -1023,6 +1024,7 @@ def test_record_passes_segment_context_to_analyze(
     assert result.exit_code == 0
 
     monkeypatch.setattr("xpiano.cli.midi_io.record", lambda **_: _recorded_midi())
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: None)
     captured: dict[str, object] = {}
     original_analyze = cli_module.analyze
 
@@ -1170,6 +1172,25 @@ def test_record_ref_command(sample_midi_path: Path, monkeypatch) -> None:
         app, ["record-ref", "--song", "twinkle", "--segment", "default"])
     assert record_ref_result.exit_code == 0
     assert "Saved reference MIDI:" in record_ref_result.stdout
+
+
+def test_record_ref_command_until_enter_forwards_flag(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    def _fake_record_reference(**kwargs):
+        captured.update(kwargs)
+        return Path("/tmp/reference.mid")
+
+    monkeypatch.setattr("xpiano.cli.reference.record_reference", _fake_record_reference)
+    record_ref_result = runner.invoke(
+        app,
+        ["record-ref", "--song", "twinkle", "--segment", "default", "--until-enter"],
+    )
+    assert record_ref_result.exit_code == 0
+    assert "Recording reference will stop when you press Enter." in record_ref_result.stdout
+    assert captured["song_id"] == "twinkle"
+    assert captured["segment_id"] == "default"
+    assert captured["until_enter"] is True
 
 
 def test_record_ref_command_requires_setup(xpiano_home: Path) -> None:
@@ -1882,6 +1903,32 @@ def test_record_rejects_unsupported_meta_beat_unit_from_meta(
     result = runner.invoke(app, ["record", "--song", "twinkle", "--segment", "default"])
     assert result.exit_code != 0
     assert called["record"] is False
+
+
+def test_record_command_until_enter_passes_open_duration(
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    result = runner.invoke(
+        app, ["import", "--file", str(sample_midi_path), "--song", "twinkle"])
+    assert result.exit_code == 0
+
+    captured: dict[str, object] = {}
+
+    def _fake_record(**kwargs):
+        captured.update(kwargs)
+        return _recorded_midi()
+
+    monkeypatch.setattr("xpiano.cli.midi_io.record", _fake_record)
+    monkeypatch.setattr("xpiano.cli.create_provider", lambda cfg: None)
+    record_result = runner.invoke(
+        app,
+        ["record", "--song", "twinkle", "--segment", "default", "--until-enter"],
+    )
+    assert record_result.exit_code == 0
+    assert "Recording will stop when you press Enter." in record_result.stdout
+    assert captured["duration_sec"] is None
+    assert captured["stop_on_enter"] is True
 
 
 def test_coach_command_with_mocked_provider(

@@ -560,6 +560,7 @@ def record(
     segment: str = typer.Option("default", "--segment"),
     input_port: str | None = typer.Option(None, "--input-port"),
     output_port: str | None = typer.Option(None, "--output-port"),
+    until_enter: bool = typer.Option(False, "--until-enter"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     song = _require_song(song)
@@ -606,15 +607,19 @@ def record(
     duration_sec = measures * beats_per_measure * (60.0 / bpm)
     count_in_beats = count_in_measures * beats_per_measure
 
+    if until_enter:
+        console.print("Recording will stop when you press Enter.")
+
     try:
         midi = midi_io.record(
             port=input_port,
-            duration_sec=duration_sec,
+            duration_sec=None if until_enter else duration_sec,
             count_in_beats=count_in_beats,
             bpm=bpm,
             output_port=output_port,
             beats_per_measure=beats_per_measure,
             beat_unit=beat_unit,
+            stop_on_enter=until_enter,
         )
         attempt_path = reference.save_attempt(
             song_id=song, midi=midi, data_dir=data_dir)
@@ -711,11 +716,15 @@ def record_ref(
     segment: str = typer.Option("default", "--segment"),
     input_port: str | None = typer.Option(None, "--input-port"),
     output_port: str | None = typer.Option(None, "--output-port"),
+    until_enter: bool = typer.Option(False, "--until-enter"),
     data_dir: Path | None = typer.Option(None, "--data-dir"),
 ) -> None:
     song = _require_song(song)
     segment = _require_segment(segment)
     config.ensure_config(data_dir=data_dir)
+    if until_enter:
+        console.print("Recording reference will stop when you press Enter.")
+
     try:
         path = reference.record_reference(
             song_id=song,
@@ -723,6 +732,7 @@ def record_ref(
             port=input_port,
             output_port=output_port,
             data_dir=data_dir,
+            until_enter=until_enter,
         )
     except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
         raise typer.BadParameter(str(exc)) from exc

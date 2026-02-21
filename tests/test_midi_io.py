@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from threading import Event
+
+import mido
 
 from xpiano import midi_io
 
@@ -33,6 +36,73 @@ def test_record_writes_configured_time_signature(monkeypatch) -> None:
     assert len(time_sig_msgs) == 1
     assert time_sig_msgs[0].numerator == 3
     assert time_sig_msgs[0].denominator == 8
+
+
+def test_record_skips_realtime_messages(monkeypatch) -> None:
+    @contextmanager
+    def _fake_input_port_with_realtime():
+        class _Port:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def iter_pending(self):
+                self.calls += 1
+                if self.calls == 1:
+                    return [
+                        mido.Message("clock"),
+                        mido.Message("note_on", note=60, velocity=100, channel=0),
+                    ]
+                return []
+
+        yield _Port()
+
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.open_input",
+        lambda port: _fake_input_port_with_realtime(),
+    )
+    midi = midi_io.record(
+        port=None,
+        duration_sec=0.01,
+        count_in_beats=0,
+        bpm=90.0,
+        beats_per_measure=4,
+        beat_unit=4,
+    )
+    message_types = [msg.type for msg in midi.tracks[0] if not msg.is_meta]
+    assert "clock" not in message_types
+    assert "note_on" in message_types
+
+
+def test_record_stops_when_enter_event_is_set(monkeypatch) -> None:
+    @contextmanager
+    def _fake_input_port_with_notes():
+        class _Port:
+            def iter_pending(self):
+                return [mido.Message("note_on", note=60, velocity=100, channel=0)]
+
+        yield _Port()
+
+    stop_event = Event()
+    stop_event.set()
+    monkeypatch.setattr(
+        "xpiano.midi_io._start_enter_listener",
+        lambda stop_on_enter: stop_event if stop_on_enter else None,
+    )
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.open_input",
+        lambda port: _fake_input_port_with_notes(),
+    )
+    midi = midi_io.record(
+        port=None,
+        duration_sec=None,
+        count_in_beats=0,
+        bpm=90.0,
+        beats_per_measure=4,
+        beat_unit=4,
+        stop_on_enter=True,
+    )
+    note_events = [msg for msg in midi.tracks[0] if not msg.is_meta]
+    assert note_events == []
 
 
 def test_list_devices_returns_empty_when_backend_queries_fail(monkeypatch) -> None:

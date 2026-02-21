@@ -302,6 +302,7 @@ def record_reference(
     port: str | None = None,
     output_port: str | None = None,
     data_dir: str | Path | None = None,
+    until_enter: bool = False,
 ) -> Path:
     validated_segment = _validate_segment_id(segment_id)
     if validated_segment is None:
@@ -342,12 +343,13 @@ def record_reference(
     count_in_beats = count_in_measures * beats_per_measure
     midi = midi_io.record(
         port=port,
-        duration_sec=duration_sec,
+        duration_sec=None if until_enter else duration_sec,
         count_in_beats=count_in_beats,
         bpm=bpm,
         output_port=output_port,
         beats_per_measure=beats_per_measure,
         beat_unit=beat_unit,
+        stop_on_enter=until_enter,
     )
     return save_reference(song_id=song_id, midi=midi, data_dir=data_dir)
 

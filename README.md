@@ -41,6 +41,13 @@ xpiano setup --song twinkle --segment verse1 --bpm 100 --time-sig 4/4 --measures
 xpiano record --song twinkle --segment verse1 --input-port "Your MIDI In" --output-port "Your MIDI Out"
 ```
 
+Manual stop mode (press Enter to finish):
+
+```bash
+xpiano record --song twinkle --segment verse1 --input-port "Your MIDI In" --output-port "Your MIDI Out" --until-enter
+xpiano record-ref --song twinkle --segment verse1 --input-port "Your MIDI In" --output-port "Your MIDI Out" --until-enter
+```
+
 5. Show latest report:
 
 ```bash

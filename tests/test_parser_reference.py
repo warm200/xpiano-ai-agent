@@ -292,6 +292,36 @@ def test_record_reference_uses_meta_segment(
     assert calls[0]["duration_sec"] > 0
     assert calls[0]["beats_per_measure"] == 4
     assert calls[0]["beat_unit"] == 4
+    assert calls[0]["stop_on_enter"] is False
+
+
+def test_record_reference_until_enter_uses_open_duration(
+    xpiano_home: Path,
+    sample_midi_path: Path,
+    monkeypatch,
+) -> None:
+    _ = xpiano_home
+    reference.import_reference(sample_midi_path, song_id="twinkle")
+
+    midi = mido.MidiFile(ticks_per_beat=480)
+    track = mido.MidiTrack()
+    midi.tracks.append(track)
+    track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(100), time=0))
+    track.append(mido.MetaMessage("time_signature", numerator=4, denominator=4, time=0))
+    track.append(mido.MetaMessage("end_of_track", time=1))
+
+    calls: list[dict] = []
+
+    def fake_record(**kwargs):
+        calls.append(kwargs)
+        return midi
+
+    monkeypatch.setattr("xpiano.reference.midi_io.record", fake_record)
+    out = reference.record_reference(song_id="twinkle", segment_id="default", until_enter=True)
+    assert out.exists()
+    assert len(calls) == 1
+    assert calls[0]["duration_sec"] is None
+    assert calls[0]["stop_on_enter"] is True
 
 
 def test_record_reference_rejects_non_positive_count_in(
