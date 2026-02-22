@@ -235,11 +235,10 @@ def analyze(
     ref_notes = _slice_to_segment(raw_ref_notes, segment_bounds)
     attempt_notes = _slice_to_segment(raw_attempt_notes, segment_bounds)
     if segment_bounds is not None:
-        start_sec, end_sec = segment_bounds
+        start_sec, _end_sec = segment_bounds
         ref_notes = _shift_notes(ref_notes, start_sec)
         if attempt_is_segment_relative:
-            segment_duration = end_sec - start_sec
-            attempt_notes = [note for note in raw_attempt_notes if 0 <= note.start_sec < segment_duration]
+            attempt_notes = [note for note in raw_attempt_notes if note.start_sec >= 0]
         else:
             attempt_notes = _shift_notes(attempt_notes, start_sec)
 

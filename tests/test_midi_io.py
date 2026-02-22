@@ -226,6 +226,72 @@ def test_record_rejects_unsupported_beat_unit() -> None:
         raise AssertionError("expected ValueError for unsupported beat_unit")
 
 
+def test_record_rejects_non_positive_tail_idle_sec() -> None:
+    try:
+        _ = midi_io.record(
+            port=None,
+            duration_sec=0.01,
+            count_in_beats=0,
+            bpm=90.0,
+            beats_per_measure=4,
+            beat_unit=4,
+            tail_idle_sec=0,
+        )
+    except ValueError as exc:
+        assert "tail_idle_sec must be > 0" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for non-positive tail_idle_sec")
+
+
+def test_record_extends_until_idle_after_planned_duration(monkeypatch) -> None:
+    @contextmanager
+    def _fake_input_port_with_late_note():
+        class _Port:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def iter_pending(self):
+                self.calls += 1
+                if self.calls == 1:
+                    return [mido.Message("note_on", note=60, velocity=90, channel=0)]
+                if self.calls == 3:
+                    # Arrives after planned duration, should still be captured.
+                    return [mido.Message("note_on", note=62, velocity=90, channel=0)]
+                return []
+
+        yield _Port()
+
+    clock = {"now": 0.0}
+
+    def _mono() -> float:
+        return clock["now"]
+
+    def _sleep(sec: float) -> None:
+        # Advance quickly to avoid slow test loops.
+        clock["now"] += max(0.02, float(sec))
+
+    monkeypatch.setattr(
+        "xpiano.midi_io.mido.open_input",
+        lambda port: _fake_input_port_with_late_note(),
+    )
+    monkeypatch.setattr("xpiano.midi_io.time.monotonic", _mono)
+    monkeypatch.setattr("xpiano.midi_io.time.sleep", _sleep)
+
+    midi = midi_io.record(
+        port=None,
+        duration_sec=0.01,
+        count_in_beats=0,
+        bpm=90.0,
+        beats_per_measure=4,
+        beat_unit=4,
+        tail_idle_sec=0.5,
+    )
+
+    note_events = [msg for msg in midi.tracks[0] if not msg.is_meta]
+    notes = [msg.note for msg in note_events if msg.type == "note_on"]
+    assert notes == [60, 62]
+
+
 def test_play_midi_rejects_non_positive_bpm_override() -> None:
     try:
         _ = midi_io.play_midi(

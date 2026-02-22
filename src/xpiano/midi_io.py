@@ -75,6 +75,7 @@ def record(
     beats_per_measure: int = 4,
     beat_unit: int = 4,
     stop_on_enter: bool = False,
+    tail_idle_sec: float = 3.0,
 ) -> mido.MidiFile:
     if duration_sec is None:
         if not stop_on_enter:
@@ -91,6 +92,8 @@ def record(
         raise ValueError("beat_unit must be > 0")
     if beat_unit not in {1, 2, 4, 8, 16}:
         raise ValueError("beat_unit must be one of 1,2,4,8,16")
+    if tail_idle_sec <= 0:
+        raise ValueError("tail_idle_sec must be > 0")
 
     _click_count_in(count_in_beats=count_in_beats,
                     bpm=bpm, output_port=output_port)
@@ -111,15 +114,20 @@ def record(
 
     start = time.monotonic()
     last_msg_time = start
+    last_note_time = start
+    has_note_activity = False
     stop_event = _start_enter_listener(stop_on_enter=stop_on_enter)
     with mido.open_input(port) as in_port:
         while True:
-            elapsed = time.monotonic() - start
-            if duration_sec is not None and elapsed >= duration_sec:
-                break
             if stop_event is not None and stop_event.is_set():
                 break
             now = time.monotonic()
+            elapsed = now - start
+            if duration_sec is not None and elapsed >= duration_sec:
+                if not has_note_activity:
+                    break
+                if (now - last_note_time) >= tail_idle_sec:
+                    break
             pending = list(in_port.iter_pending())
             if not pending:
                 time.sleep(0.001)
@@ -132,6 +140,8 @@ def record(
                     continue
                 track.append(msg.copy(time=delta_ticks))
                 last_msg_time = now
+                last_note_time = now
+                has_note_activity = True
     track.append(mido.MetaMessage("end_of_track", time=1))
     return midi
 
