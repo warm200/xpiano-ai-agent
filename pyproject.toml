@@ -2,7 +2,7 @@
 name = "xpiano"
 version = "0.1.0"
 description = "CLI-first AI piano coach MVP"
-readme = "docs/prd.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "anthropic>=0.39",
