@@ -34,7 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install project
-        run: uv sync --frozen
+        run: uv sync
 
       - name: Practice command regression
         run: uv run pytest -q tests/test_cli_practice.py
