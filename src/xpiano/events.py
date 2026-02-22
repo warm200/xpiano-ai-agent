@@ -62,15 +62,37 @@ def _segment_start_measure(meta: dict, segment_id: str | None) -> int:
     raise ValueError(f"segment not found: {segment_id}")
 
 
-def _group_indices_by_time(indices: list[int], notes: list[NoteEvent], window_sec: float) -> list[list[int]]:
+def _attempt_time_sec(note: NoteEvent, alignment: AlignmentResult) -> float:
+    if alignment.warp_scale is None or alignment.warp_offset_sec is None:
+        return note.start_sec
+    return (note.start_sec * alignment.warp_scale) + alignment.warp_offset_sec
+
+
+def _group_indices_by_time(
+    indices: list[int],
+    notes: list[NoteEvent],
+    window_sec: float,
+    time_lookup: dict[int, float] | None = None,
+) -> list[list[int]]:
     if not indices:
         return []
-    sorted_indices = sorted(indices, key=lambda idx: notes[idx].start_sec)
+    sorted_indices = sorted(
+        indices,
+        key=lambda idx: (
+            time_lookup[idx] if time_lookup is not None else notes[idx].start_sec
+        ),
+    )
     groups: list[list[int]] = [[sorted_indices[0]]]
     for idx in sorted_indices[1:]:
         last_group = groups[-1]
-        anchor = notes[last_group[0]].start_sec
-        if abs(notes[idx].start_sec - anchor) <= window_sec:
+        anchor_idx = last_group[0]
+        anchor = (
+            time_lookup[anchor_idx]
+            if time_lookup is not None
+            else notes[anchor_idx].start_sec
+        )
+        note_time = time_lookup[idx] if time_lookup is not None else notes[idx].start_sec
+        if abs(note_time - anchor) <= window_sec:
             last_group.append(idx)
         else:
             groups.append([idx])
@@ -160,6 +182,10 @@ def generate_events(
     matched_ref_indices: set[int] = set()
     matched_attempt_indices: set[int] = set()
     events: list[AnalysisEvent] = []
+    attempt_time_lookup = {
+        idx: _attempt_time_sec(note=note, alignment=alignment)
+        for idx, note in enumerate(attempt)
+    }
 
     for ref_idx, attempt_idx in alignment.path:
         if ref_idx >= len(ref) or attempt_idx >= len(attempt):
@@ -169,7 +195,9 @@ def generate_events(
         if ref_note.pitch != attempt_note.pitch:
             continue
 
-        onset_delta_ms = (attempt_note.start_sec - ref_note.start_sec) * 1000.0
+        onset_delta_ms = (
+            attempt_time_lookup[attempt_idx] - ref_note.start_sec
+        ) * 1000.0
         if abs(onset_delta_ms) > match_tol_ms:
             continue
 
@@ -225,7 +253,11 @@ def generate_events(
     group_counter = count(1)
     chord_window_sec = chord_window_ms / 1000.0
 
-    ref_chord_groups = _group_indices_by_time(unmatched_ref_indices, ref, chord_window_sec)
+    ref_chord_groups = _group_indices_by_time(
+        unmatched_ref_indices,
+        ref,
+        chord_window_sec,
+    )
     for ref_group in ref_chord_groups:
         anchor_time = ref[ref_group[0]].start_sec
         ref_context = [
@@ -233,8 +265,8 @@ def generate_events(
             if abs(note.start_sec - anchor_time) <= chord_window_sec
         ]
         attempt_context = [
-            idx for idx, note in enumerate(attempt)
-            if abs(note.start_sec - anchor_time) <= chord_window_sec
+            idx for idx in range(len(attempt))
+            if abs(attempt_time_lookup[idx] - anchor_time) <= chord_window_sec
         ]
         ref_context_pitches = {ref[idx].pitch for idx in ref_context}
         attempt_context_pitches = {attempt[idx].pitch for idx in attempt_context}
@@ -244,7 +276,8 @@ def generate_events(
 
         candidate_attempt = [
             idx for idx in unmatched_attempt_indices
-            if idx not in consumed_attempt_indices and abs(attempt[idx].start_sec - anchor_time) <= chord_window_sec
+            if idx not in consumed_attempt_indices
+            and abs(attempt_time_lookup[idx] - anchor_time) <= chord_window_sec
         ]
         if not candidate_attempt:
             continue
@@ -347,7 +380,7 @@ def generate_events(
         if attempt_idx in matched_attempt_indices or attempt_idx in consumed_attempt_indices:
             continue
         pos = time_to_measure_beat(
-            time_sec=attempt_note.start_sec,
+            time_sec=attempt_time_lookup[attempt_idx],
             bpm=bpm,
             beats_per_measure=beats_per_measure,
             start_measure=start_measure,

@@ -89,6 +89,30 @@ def test_analysis_quality_tiers(tmp_path: Path) -> None:
     assert bad.match_rate == 0.0
 
 
+def test_analysis_hmm_alignment_handles_tempo_scaled_attempt(tmp_path: Path) -> None:
+    ref_mid = tmp_path / "ref.mid"
+    attempt_mid = tmp_path / "attempt.mid"
+    _write_midi(ref_mid, [(0.0, 1.0, 60), (1.0, 1.0, 62), (2.0, 1.0, 64), (3.0, 1.0, 65)])
+    _write_midi(
+        attempt_mid,
+        [
+            (0.1, 1.0, 60),
+            (1.2, 1.0, 62),
+            (2.3, 1.0, 64),
+            (3.4, 1.0, 65),
+        ],
+    )
+
+    result = analyze(str(ref_mid), str(attempt_mid), _meta())
+    assert result.alignment.method == "hmm_viterbi"
+    assert result.match_rate >= 0.99
+    assert result.quality_tier == "full"
+    assert all(
+        event.type not in {"missing_note", "extra_note", "wrong_pitch"}
+        for event in result.events
+    )
+
+
 def test_report_build_and_save(tmp_path: Path, xpiano_home: Path) -> None:
     ref_mid = tmp_path / "ref.mid"
     attempt_mid = tmp_path / "attempt.mid"

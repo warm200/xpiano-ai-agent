@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from statistics import median
 
-from xpiano.alignment import Aligner, DTWAligner
+from xpiano.alignment import Aligner, HMMAligner
 from xpiano.events import generate_events
 from xpiano.models import AlignmentResult, AnalysisEvent, NoteEvent
 from xpiano.parser import midi_to_notes
@@ -103,6 +103,7 @@ def _shift_notes(notes: list[NoteEvent], offset_sec: float) -> list[NoteEvent]:
 def _select_valid_matches(
     ref_notes: list[NoteEvent],
     attempt_notes: list[NoteEvent],
+    alignment: AlignmentResult,
     path: list[tuple[int, int]],
     match_tol_ms: float,
 ) -> list[tuple[int, int]]:
@@ -118,7 +119,11 @@ def _select_valid_matches(
         attempt_note = attempt_notes[attempt_idx]
         if ref_note.pitch != attempt_note.pitch:
             continue
-        if abs((attempt_note.start_sec - ref_note.start_sec) * 1000.0) > match_tol_ms:
+        attempt_start_sec = _warped_attempt_start_sec(
+            attempt_note=attempt_note,
+            alignment=alignment,
+        )
+        if abs((attempt_start_sec - ref_note.start_sec) * 1000.0) > match_tol_ms:
             continue
         seen_ref.add(ref_idx)
         seen_attempt.add(attempt_idx)
@@ -146,15 +151,34 @@ def _safe_p90(values: list[float]) -> float:
     return float(sorted_vals[idx])
 
 
-def _build_metrics(ref_notes: list[NoteEvent], attempt_notes: list[NoteEvent], matches: list[tuple[int, int]]) -> dict:
+def _warped_attempt_start_sec(
+    attempt_note: NoteEvent,
+    alignment: AlignmentResult,
+) -> float:
+    if alignment.warp_scale is None or alignment.warp_offset_sec is None:
+        return attempt_note.start_sec
+    return (attempt_note.start_sec * alignment.warp_scale) + alignment.warp_offset_sec
+
+
+def _build_metrics(
+    ref_notes: list[NoteEvent],
+    attempt_notes: list[NoteEvent],
+    matches: list[tuple[int, int]],
+    alignment: AlignmentResult,
+) -> dict:
     deltas_ms: list[float] = []
     duration_ratios: list[float] = []
 
     for ref_idx, attempt_idx in matches:
         ref_note = ref_notes[ref_idx]
         attempt_note = attempt_notes[attempt_idx]
+        attempt_start_sec = _warped_attempt_start_sec(
+            attempt_note=attempt_note,
+            alignment=alignment,
+        )
         deltas_ms.append(
-            (attempt_note.start_sec - ref_note.start_sec) * 1000.0)
+            (attempt_start_sec - ref_note.start_sec) * 1000.0
+        )
         if ref_note.dur_sec > 0:
             duration_ratios.append(attempt_note.dur_sec / ref_note.dur_sec)
 
@@ -219,7 +243,7 @@ def analyze(
         else:
             attempt_notes = _shift_notes(attempt_notes, start_sec)
 
-    engine = aligner or DTWAligner()
+    engine = aligner or HMMAligner()
     alignment = engine.align_offline(ref_notes, attempt_notes)
 
     match_tol_ms = float(meta.get("tolerance", {}).get("match_tol_ms", 80))
@@ -240,6 +264,7 @@ def analyze(
     valid_matches = _select_valid_matches(
         ref_notes=ref_notes,
         attempt_notes=attempt_notes,
+        alignment=alignment,
         path=alignment.path,
         match_tol_ms=match_tol_ms,
     )
@@ -255,7 +280,11 @@ def analyze(
         segment_id=segment_id,
     )
     metrics = _build_metrics(
-        ref_notes=ref_notes, attempt_notes=attempt_notes, matches=valid_matches)
+        ref_notes=ref_notes,
+        attempt_notes=attempt_notes,
+        matches=valid_matches,
+        alignment=alignment,
+    )
 
     return AnalysisResult(
         ref_notes=ref_notes,

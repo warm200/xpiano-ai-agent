@@ -54,6 +54,8 @@ class AlignmentResult:
     path: list[tuple[int, int]]
     cost: float
     method: str
+    warp_scale: float | None = None
+    warp_offset_sec: float | None = None
 
 
 @dataclass
