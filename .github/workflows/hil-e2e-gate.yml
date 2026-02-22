@@ -1,0 +1,77 @@
+name: HIL E2E Gate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: "30 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  hil-e2e-gate:
+    name: hil-e2e-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HIL_REFERENCE_MID: ${{ vars.HIL_REFERENCE_MID }}
+      HIL_PRACTICE_MID: ${{ vars.HIL_PRACTICE_MID }}
+      HIL_INPUT_PORT: ${{ vars.HIL_INPUT_PORT }}
+      HIL_OUTPUT_PORT: ${{ vars.HIL_OUTPUT_PORT }}
+      HIL_SONG_ID: ${{ vars.HIL_SONG_ID }}
+      HIL_SEGMENT_ID: ${{ vars.HIL_SEGMENT_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install project
+        run: uv sync --frozen
+
+      - name: Practice command regression
+        run: uv run pytest -q tests/test_cli_practice.py
+
+      - name: Validate HIL scripts
+        run: |
+          bash -n scripts/e2e_hil_gate.sh
+          python3 scripts/check_report_thresholds.py --help >/dev/null
+
+      - name: Determine HIL runtime config
+        id: hilcfg
+        run: |
+          missing=0
+          for key in HIL_REFERENCE_MID HIL_PRACTICE_MID HIL_INPUT_PORT HIL_OUTPUT_PORT; do
+            if [ -z "${!key:-}" ]; then
+              echo "missing $key"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo "run_hil=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "run_hil=1" >> "$GITHUB_OUTPUT"
+
+      - name: Run HIL E2E gate
+        if: steps.hilcfg.outputs.run_hil == '1'
+        run: |
+          scripts/e2e_hil_gate.sh \
+            "$HIL_REFERENCE_MID" \
+            "$HIL_PRACTICE_MID" \
+            "$HIL_INPUT_PORT" \
+            "$HIL_OUTPUT_PORT" \
+            "${HIL_SONG_ID:-hil_song}" \
+            "${HIL_SEGMENT_ID:-default}"
+
+      - name: HIL config missing notice
+        if: steps.hilcfg.outputs.run_hil != '1'
+        run: |
+          echo "HIL E2E gate skipped: configure repo variables HIL_REFERENCE_MID, HIL_PRACTICE_MID, HIL_INPUT_PORT, HIL_OUTPUT_PORT."

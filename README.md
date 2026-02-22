@@ -71,6 +71,12 @@ xpiano playback --song twinkle --segment verse1 --mode attempt
 xpiano playback --song twinkle --segment verse1 --mode comparison --measures 2-4
 ```
 
+Practice driver (play a MIDI file like a "human" input source):
+
+```bash
+xpiano practice --file /path/to/attempt.mid --output-port "Your MIDI Out"
+```
+
 Wait mode:
 
 ```bash

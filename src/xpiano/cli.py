@@ -919,6 +919,38 @@ def playback(
         f"Playback status: {result.status} ({result.duration_sec:.2f}s)")
 
 
+@app.command("practice")
+def practice(
+    file: Path = typer.Option(..., "--file", exists=True, dir_okay=False),
+    output_port: str | None = typer.Option(None, "--output-port"),
+    bpm: float | None = typer.Option(None, "--bpm"),
+    start_sec: float = typer.Option(0.0, "--start-sec"),
+    end_sec: float | None = typer.Option(None, "--end-sec"),
+) -> None:
+    if bpm is not None and (bpm < 20 or bpm > 240):
+        raise typer.BadParameter("bpm must be in range 20..240")
+    if start_sec < 0:
+        raise typer.BadParameter("start-sec must be >= 0")
+    if end_sec is not None and end_sec < 0:
+        raise typer.BadParameter("end-sec must be >= 0")
+    if end_sec is not None and end_sec < start_sec:
+        raise typer.BadParameter("end-sec must be >= start-sec")
+    try:
+        midi = mido.MidiFile(str(file))
+        result = midi_io.play_midi(
+            port=output_port,
+            midi=midi,
+            bpm=bpm,
+            start_sec=start_sec,
+            end_sec=end_sec,
+            highlight_pitches=None,
+        )
+    except (FileNotFoundError, ValueError, OSError, RuntimeError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    console.print(
+        f"Practice status: {result.status} ({result.duration_sec:.2f}s)")
+
+
 @app.command("wait")
 def wait(
     song: str = typer.Option(..., "--song"),
